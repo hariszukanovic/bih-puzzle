@@ -16,7 +16,7 @@
   const confettiCanvas = $("#confetti");
 
   /* ---------------- settings ---------------- */
-  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs", fullscreen: true };
+  const DEFAULTS = { n: 22, cantons: false, cities: false, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs", fullscreen: true };
   const settings = Object.assign({}, DEFAULTS, readStore());
   const qs = new URLSearchParams(location.search);
   if (qs.get("lang") === "en" || qs.get("lang") === "bs") settings.lang = qs.get("lang");
@@ -24,6 +24,9 @@
   if (qs.get("shape") === "wavy" || qs.get("shape") === "classic") settings.shape = qs.get("shape");
   if (qs.get("bg") === "flag" || qs.get("bg") === "map") settings.bg = qs.get("bg");
   settings.n = clampN(settings.n);
+  // every game starts clean: no hint, no cantons, no cities
+  const resetHelpers = () => { settings.hint = false; settings.cantons = false; settings.cities = false; };
+  resetHelpers();
 
   function readStore() {
     try { return JSON.parse(localStorage.getItem("bih-puzzle-v2") || "{}"); } catch (e) { return {}; }
@@ -601,6 +604,9 @@
 
   function newGame() {
     const n = settings.n;
+    resetHelpers();
+    saveStore();
+    syncUI();
     $("#win").hidden = true;
     $("#loading").classList.remove("hide");
     stopTimer();
