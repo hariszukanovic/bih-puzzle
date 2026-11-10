@@ -976,6 +976,10 @@
     const localRank = list.indexOf(entry) + 1;
     winInfo = { n, ms, shape: settings.shape, localId: null, globalPending: false, globalId: null };
     $("#record").hidden = true;
+    // fresh nickname form for this game
+    $("#playerName").value = settings.lastName || "";
+    $("#saveName").disabled = false;
+    $("#saveName").textContent = t("save");
     if (localRank <= 10) {
       all[n] = list.slice(0, 10);
       writeScores(all);
@@ -998,11 +1002,6 @@
   function showNameForm(text) {
     $("#record").hidden = false;
     $("#recordText").textContent = text;
-    if (!$("#saveName").disabled || $("#saveName").textContent !== t("saved")) {
-      $("#playerName").value = $("#playerName").value || settings.lastName || "";
-      $("#saveName").disabled = false;
-      $("#saveName").textContent = t("save");
-    }
   }
 
   // send the score to the global list (once), with whatever name was typed
@@ -1049,7 +1048,6 @@
     const n = which === "win" && winInfo ? winInfo.n : String(settings.n);
     if (which === "rank") {
       $("#rankingSub").textContent = t(scope === "global" ? "rankingSubGlobal" : "rankingSub").replace("{n}", n);
-      $("#rankClear").hidden = scope === "global";
     }
     if (scope === "local") {
       renderList(el, readScores()[n] || [], which === "win" && winInfo ? winInfo.localId : null);
@@ -1095,12 +1093,7 @@
   }
   $("#rankBtn").onclick = openRanking;
   $("#rankClose").onclick = () => { $("#ranking").hidden = true; };
-  $("#rankClear").onclick = () => {
-    const n = String(settings.n);
-    if (!window.confirm(t("confirmClear").replace("{n}", n))) return;
-    const all = readScores(); delete all[n]; writeScores(all);
-    renderScope("rank");
-  };
+
 
   /* ---------------- sharing ---------------- */
   const GAME_URL = "https://hariszukanovic.github.io/bih-puzzle/";
