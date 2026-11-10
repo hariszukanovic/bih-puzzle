@@ -700,6 +700,17 @@
     }
   }
 
+  // Once the remaining pieces fit in the tray at real size, show them at real size,
+  // so they visibly match the holes on the board.
+  function growWaitingPieces() {
+    const loose = state.pieces.filter((p) => !p.placed && !isDragged(p) && !p.animating);
+    if (!loose.some((p) => p.s < 1)) return;
+    const items = loose.slice().sort((p, q) => q.h - p.h);
+    if (!pack(items, state.view.tray, 1)) return;
+    scatter(loose);
+    requestDraw();
+  }
+
   // shelf packing; returns rows of pieces, or null if they do not fit
   function pack(items, tr, s) {
     const gap = 6, rows = [];
@@ -916,7 +927,8 @@
     sound("snap");
     updateStatus();
     requestDraw();
-    if (state.pieces.every((q) => q.placed)) win();
+    if (state.pieces.every((q) => q.placed)) { win(); return; }
+    growWaitingPieces();
   }
 
   /* ---------------- timer & status ---------------- */
@@ -1329,7 +1341,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => layout(false), 80); });
 
   // test hook: solve the puzzle (used by automated checks)
-  window.__bihPuzzle = { state, redraw: () => requestDraw(), solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
+  window.__bihPuzzle = { state, redraw: () => requestDraw(), placeOne() { const p = state.pieces.find((q) => !q.placed); if (p) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } }, solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
 
   syncUI();
   layout(true);
