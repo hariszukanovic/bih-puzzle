@@ -719,10 +719,12 @@
     // board
     ctx.save();
     ctx.translate(v.board.x, v.board.y);
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    // with the hint on, the picture is shown clearly enough that its colours match the pieces
+    const showHint = settings.hint && state.map;
+    ctx.fillStyle = showHint ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.6)";
     ctx.fill(outlinePath, "evenodd");
-    if (settings.hint && state.map) {
-      ctx.globalAlpha = 0.3;
+    if (showHint) {
+      ctx.globalAlpha = 0.62;
       ctx.drawImage(state.map, 0, 0, W, H);
       ctx.globalAlpha = 1;
     }
