@@ -460,7 +460,7 @@
   /* ---------------- game state ---------------- */
   const state = {
     pieces: [], order: [], map: null, placedLayer: null, won: false,
-    start: 0, elapsed: 0, timer: null, drag: null, view: null,
+    start: 0, elapsed: 0, timer: null, drags: null, view: null,
   };
 
   function newGame() {
@@ -469,6 +469,7 @@
     $("#loading").classList.remove("hide");
     stopTimer();
     state.won = false; state.elapsed = 0; state.start = 0;
+    drags.clear();
     updateStatus();
     setTimeout(() => {
       let label = null;
@@ -603,7 +604,7 @@
     // loose pieces
     for (const p of state.order) {
       if (p.placed) continue;
-      const lift = state.drag && state.drag.p === p ? 1.04 : 1;
+      const lift = isDragged(p) ? 1.05 : 1;
       if (lift !== 1) {
         ctx.save();
         const cxp = p.x + p.w / 2, cyp = p.y + p.h / 2;
@@ -615,72 +616,112 @@
   }
 
   /* ---------------- input ---------------- */
-  function toTable(e) {
+  // Pointer events where available, with a touch + mouse fallback for older
+  // browsers (e.g. some smart boards). Every finger can drag its own piece, so
+  // several children can play on one board at the same time.
+  const drags = new Map(); // pointer id -> { p, dx, dy }
+  state.drags = drags;
+
+  function toTable(cx, cy) {
     const r = canvas.getBoundingClientRect(), v = state.view;
-    return { x: (e.clientX - r.left - v.ox) / v.scale, y: (e.clientY - r.top - v.oy) / v.scale };
+    return { x: (cx - r.left - v.ox) / v.scale, y: (cy - r.top - v.oy) / v.scale };
   }
 
+  function inMask(p, x, y) {
+    const ax = Math.round(x - p.x), ay = Math.round(y - p.y);
+    return ax >= 0 && ay >= 0 && ax < p.w && ay < p.h && p.mask[ay * p.w + ax] === 1;
+  }
   function hit(p, x, y, tol) {
-    const lx = Math.round(x - p.x), ly = Math.round(y - p.y);
-    for (let dy = -tol; dy <= tol; dy += tol || 1) for (let dx = -tol; dx <= tol; dx += tol || 1) {
-      const ax = lx + dx, ay = ly + dy;
-      if (ax >= 0 && ay >= 0 && ax < p.w && ay < p.h && p.mask[ay * p.w + ax]) return true;
-      if (!tol) return false;
+    if (inMask(p, x, y)) return true;
+    if (!tol) return false;
+    for (const f of [0.5, 1]) for (let k = 0; k < 12; k++) {
+      const a = (k * Math.PI) / 6;
+      if (inMask(p, x + Math.cos(a) * tol * f, y + Math.sin(a) * tol * f)) return true;
     }
     return false;
   }
-
+  function isDragged(p) {
+    for (const d of drags.values()) if (d.p === p) return true;
+    return false;
+  }
   function pick(pt, tol) {
-    for (let i = state.order.length - 1; i >= 0; i--) {
-      const p = state.order[i];
-      if (!p.placed && hit(p, pt.x, pt.y, tol)) return p;
-    }
+    const free = state.order.filter((p) => !p.placed && !p.animating && !isDragged(p));
+    for (let i = free.length - 1; i >= 0; i--) if (hit(free[i], pt.x, pt.y, 0)) return free[i];
+    for (let i = free.length - 1; i >= 0; i--) if (hit(free[i], pt.x, pt.y, tol)) return free[i];
     return null;
   }
 
-  canvas.addEventListener("pointerdown", (e) => {
-    if (state.drag || state.won) return;
-    const pt = toTable(e);
-    const tol = Math.round((e.pointerType === "touch" ? 14 : 4) / state.view.scale * 0.5);
-    const p = pick(pt, 0) || pick(pt, tol);
-    if (!p) return;
-    e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
-    state.drag = { p, id: e.pointerId, dx: pt.x - p.x, dy: pt.y - p.y };
+  function startDrag(id, cx, cy, coarse) {
+    if (state.won || !state.view || !state.pieces.length || drags.has(id)) return false;
+    const pt = toTable(cx, cy);
+    const p = pick(pt, (coarse ? 28 : 6) / state.view.scale);
+    if (!p) return false;
+    drags.set(id, { p, dx: pt.x - p.x, dy: pt.y - p.y, coarse });
     state.order.splice(state.order.indexOf(p), 1);
     state.order.push(p);
     if (!state.start) startTimer();
     sound("pick");
     requestDraw();
-  });
-
-  canvas.addEventListener("pointermove", (e) => {
-    const d = state.drag;
-    if (!d || d.id !== e.pointerId) {
-      if (!d && e.pointerType === "mouse" && state.view) canvas.style.cursor = pick(toTable(e), 0) ? "grab" : "default";
-      return;
-    }
-    const pt = toTable(e), v = state.view;
+    return true;
+  }
+  function moveDrag(id, cx, cy) {
+    const d = drags.get(id);
+    if (!d) return false;
+    const pt = toTable(cx, cy), v = state.view;
     d.p.x = Math.max(-d.p.w * 0.5, Math.min(v.tW - d.p.w * 0.5, pt.x - d.dx));
     d.p.y = Math.max(-d.p.h * 0.5, Math.min(v.tH - d.p.h * 0.5, pt.y - d.dy));
-    canvas.style.cursor = "grabbing";
     requestDraw();
-  });
-
-  function endDrag(e) {
-    const d = state.drag;
-    if (!d || d.id !== e.pointerId) return;
-    state.drag = null;
-    canvas.style.cursor = "default";
+    return true;
+  }
+  function endDrag(id) {
+    const d = drags.get(id);
+    if (!d) return;
+    drags.delete(id);
     const p = d.p, v = state.view;
     const tx = v.board.x + p.minx, ty = v.board.y + p.miny;
-    if (Math.hypot(p.x - tx, p.y - ty) < SNAP) {
-      animateTo(p, tx, ty, () => place(p));
-    }
+    const snap = Math.max(SNAP, (d.coarse ? 46 : 30) / v.scale);
+    if (Math.hypot(p.x - tx, p.y - ty) < snap) animateTo(p, tx, ty, () => place(p));
     requestDraw();
   }
-  canvas.addEventListener("pointerup", endDrag);
-  canvas.addEventListener("pointercancel", endDrag);
+
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  if (window.PointerEvent) {
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (startDrag(e.pointerId, e.clientX, e.clientY, e.pointerType !== "mouse")) {
+        e.preventDefault();
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        if (e.pointerType === "mouse") canvas.style.cursor = "grabbing";
+      }
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (moveDrag(e.pointerId, e.clientX, e.clientY)) { e.preventDefault(); return; }
+      if (e.pointerType === "mouse" && !drags.size && state.view && state.pieces.length) {
+        canvas.style.cursor = pick(toTable(e.clientX, e.clientY), 0) ? "grab" : "default";
+      }
+    });
+    const up = (e) => { endDrag(e.pointerId); if (e.pointerType === "mouse") canvas.style.cursor = "default"; };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    canvas.addEventListener("lostpointercapture", up);
+  } else {
+    const opts = { passive: false };
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      for (const tch of Array.from(e.changedTouches)) startDrag("t" + tch.identifier, tch.clientX, tch.clientY, true);
+    }, opts);
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      for (const tch of Array.from(e.changedTouches)) moveDrag("t" + tch.identifier, tch.clientX, tch.clientY);
+    }, opts);
+    const tend = (e) => { for (const tch of Array.from(e.changedTouches)) endDrag("t" + tch.identifier); };
+    canvas.addEventListener("touchend", tend);
+    canvas.addEventListener("touchcancel", tend);
+    canvas.addEventListener("mousedown", (e) => { if (e.button === 0 && startDrag("m", e.clientX, e.clientY, false)) e.preventDefault(); });
+    window.addEventListener("mousemove", (e) => moveDrag("m", e.clientX, e.clientY));
+    window.addEventListener("mouseup", () => endDrag("m"));
+  }
 
   function animateTo(p, x, y, done) {
     const x0 = p.x, y0 = p.y, t0 = performance.now(), dur = 110;
@@ -797,6 +838,8 @@
     $("#tCantons").title = t("cantons");
     $("#tCities").title = t("cities");
     $("#tHint").title = t("hint");
+    $("#fullscreen").title = t("fullscreen");
+    $("#fullscreen").setAttribute("aria-label", t("fullscreen"));
     setPressed("#langBs", settings.lang === "bs");
     setPressed("#langEn", settings.lang === "en");
     if (state.won) showWinText();
@@ -842,6 +885,25 @@
   const setLang = (l) => () => { settings.lang = l; saveStore(); syncUI(); rerenderMap(); };
   $("#langBs").onclick = setLang("bs");
   $("#langEn").onclick = setLang("en");
+
+  // fullscreen (handy on smart boards: hides the browser bars)
+  const fsEl = document.documentElement;
+  const fsReq = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen || fsEl.msRequestFullscreen;
+  const fsExit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+  const fsActive = () => document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+  if (fsReq) {
+    const btn = $("#fullscreen");
+    btn.hidden = false;
+    btn.onclick = () => {
+      try {
+        const r = fsActive() ? fsExit.call(document) : fsReq.call(fsEl);
+        if (r && r.catch) r.catch(() => {});
+      } catch (e) { /* not allowed */ }
+    };
+    const fsSync = () => { btn.setAttribute("aria-pressed", fsActive() ? "true" : "false"); setTimeout(() => layout(false), 120); };
+    document.addEventListener("fullscreenchange", fsSync);
+    document.addEventListener("webkitfullscreenchange", fsSync);
+  }
 
   let resizeTimer = null;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => layout(false), 80); });

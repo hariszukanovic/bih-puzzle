@@ -19,6 +19,7 @@ window.I18N = {
     harder: "Više dijelova",
     look: "Pogledaj kartu",
     capital: "glavni grad",
+    fullscreen: "Cijeli ekran",
   },
   en: {
     title: "BiH Puzzle",
@@ -40,5 +41,6 @@ window.I18N = {
     harder: "More pieces",
     look: "Look at the map",
     capital: "capital",
+    fullscreen: "Full screen",
   },
 };
