@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261110g">
+<link rel="stylesheet" href="css/style.css?v=20261110h">
 </head>
 <body>
 <header class="bar">
@@ -34,43 +34,58 @@
   </div>
 
   <div class="controls">
-    <div class="group pieces">
-      <span class="label" data-i18n="pieces">Dijelovi</span>
-      <button class="round" id="minus" aria-label="-">−</button>
-      <input id="count" type="number" min="2" max="80" value="22" inputmode="numeric" aria-label="pieces">
-      <button class="round" id="plus" aria-label="+">+</button>
+    <div class="group">
+      <button class="chip" id="tCantons" aria-pressed="false"><span aria-hidden="true">🗺️</span> <span class="txt" data-i18n="cantons">Kantoni</span> <span class="cost">+10s</span></button>
+      <button class="chip" id="tCities" aria-pressed="false"><span aria-hidden="true">🏙️</span> <span class="txt" data-i18n="cities">Gradovi</span> <span class="cost">+10s</span></button>
+      <button class="chip" id="tHint" aria-pressed="false"><span aria-hidden="true">💡</span> <span class="txt" data-i18n="hint">Pomoć</span> <span class="cost">+15s</span></button>
     </div>
 
     <div class="group">
-      <button class="chip" id="tCantons" aria-pressed="true"><span aria-hidden="true">🗺️</span> <span class="txt" data-i18n="cantons">Kantoni</span></button>
-      <button class="chip" id="tCities" aria-pressed="true"><span aria-hidden="true">🏙️</span> <span class="txt" data-i18n="cities">Gradovi</span></button>
-      <button class="chip" id="tHint" aria-pressed="true"><span aria-hidden="true">💡</span> <span class="txt" data-i18n="hint">Pomoć</span></button>
-    </div>
-
-    <div class="group seg" role="group">
-      <span class="label" data-i18n="shape">Oblik</span>
-      <button class="segbtn" id="shapeClassic" aria-pressed="true" data-i18n="shapeClassic">Klasični</button>
-      <button class="segbtn" id="shapeWavy" aria-pressed="false" data-i18n="shapeWavy">Valoviti</button>
-    </div>
-
-    <div class="group seg" role="group">
-      <span class="label" data-i18n="background">Pozadina</span>
-      <button class="segbtn" id="bgMap" aria-pressed="true" data-i18n="bgMap">Karta</button>
-      <button class="segbtn" id="bgFlag" aria-pressed="false" data-i18n="bgFlag">Zastava</button>
-    </div>
-
-    <div class="group">
+      <button class="chip icon" id="tidyBtn" aria-label="Posloži dijelove">🧹</button>
+      <button class="chip icon" id="rankBtn" aria-label="Top 10">🏆</button>
+      <button class="chip icon" id="shareBtn" aria-label="Podijeli">📤</button>
       <button class="chip icon" id="fullscreen" aria-label="Fullscreen" hidden>⛶</button>
-      <button class="chip icon" id="tSound" aria-pressed="true" aria-label="Zvuk">🔊</button>
+      <button class="chip icon" id="settingsBtn" aria-label="Postavke" aria-expanded="false">⚙️</button>
+      <button class="primary" id="newGame"><span aria-hidden="true">🔀</span> <span data-i18n="newGame">Nova igra</span></button>
+    </div>
+  </div>
+
+  <div class="panel" id="settingsPanel" hidden>
+    <h3 data-i18n="settings">Postavke</h3>
+    <div class="row">
+      <span class="label" data-i18n="pieces">Dijelovi</span>
+      <div class="group pieces">
+        <button class="round" id="minus" aria-label="-">−</button>
+        <input id="count" type="number" min="2" max="80" value="22" inputmode="numeric" aria-label="pieces">
+        <button class="round" id="plus" aria-label="+">+</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="label" data-i18n="shape">Oblik</span>
+      <div class="seg" role="group">
+        <button class="segbtn" id="shapeClassic" aria-pressed="true" data-i18n="shapeClassic">Klasični</button>
+        <button class="segbtn" id="shapeWavy" aria-pressed="false" data-i18n="shapeWavy">Valoviti</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="label" data-i18n="background">Pozadina</span>
+      <div class="seg" role="group">
+        <button class="segbtn" id="bgMap" aria-pressed="false" data-i18n="bgMap">Karta</button>
+        <button class="segbtn" id="bgFlag" aria-pressed="true" data-i18n="bgFlag">Zastava</button>
+      </div>
+    </div>
+    <div class="row">
+      <span class="label" data-i18n="language">Jezik</span>
       <div class="seg lang" role="group" aria-label="Jezik / Language">
         <button class="segbtn" id="langBs" aria-pressed="true">BS</button>
         <button class="segbtn" id="langEn" aria-pressed="false">EN</button>
       </div>
-      <button class="chip icon" id="shareBtn" aria-label="Podijeli">📤</button>
-      <button class="chip icon" id="tidyBtn" aria-label="Posloži dijelove">🧹</button>
-      <button class="chip icon" id="rankBtn" aria-label="Top 10">🏆</button>
-      <button class="primary" id="newGame"><span aria-hidden="true">🔀</span> <span data-i18n="newGame">Nova igra</span></button>
     </div>
+    <div class="row">
+      <span class="label" data-i18n="sound">Zvuk</span>
+      <button class="chip icon" id="tSound" aria-pressed="true" aria-label="Zvuk">🔊</button>
+    </div>
+    <p class="note" data-i18n="settingsNote">Promjena dijelova ili oblika počinje novu igru.</p>
   </div>
 </header>
 
@@ -116,6 +131,20 @@
       </div>
     </div>
   </div>
+  <div class="win" id="confirmDlg" hidden>
+    <div class="card">
+      <div class="trophy" aria-hidden="true">🔀</div>
+      <h2 data-i18n="confirmNewTitle">Nova igra?</h2>
+      <p data-i18n="confirmNewText">Već si složio/la dio karte. Želiš li stvarno početi ispočetka?</p>
+      <div class="actions">
+        <button class="primary" id="confirmYes" data-i18n="confirmYes">Da, nova igra</button>
+        <button class="chip" id="confirmNo" data-i18n="confirmNo">Ne, nastavi</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+
   <div class="win" id="shareDlg" hidden>
     <div class="card">
       <div class="trophy" aria-hidden="true">🧩</div>
@@ -150,10 +179,11 @@
   </div>
 </main>
 
-<script src="js/mapdata.js?v=20261110g"></script>
-<script src="js/i18n.js?v=20261110g"></script>
-<script src="js/firebase-config.js?v=20261110g"></script>
-<script src="js/online.js?v=20261110g"></script>
-<script src="js/game.js?v=20261110g"></script>
+<script src="js/mapdata.js?v=20261110h"></script>
+<script src="js/i18n.js?v=20261110h"></script>
+<script src="js/badwords.js?v=20261110h"></script>
+<script src="js/firebase-config.js?v=20261110h"></script>
+<script src="js/online.js?v=20261110h"></script>
+<script src="js/game.js?v=20261110h"></script>
 </body>
 </html>

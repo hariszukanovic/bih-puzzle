@@ -511,6 +511,52 @@
     }
   }
 
+  /* which canton / entity each pixel belongs to (for the name shown when a piece snaps in) */
+  let regionMap = null;
+  function getRegionMap() {
+    if (regionMap) return regionMap;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    MAP.regions.forEach((r, i) => { g.fillStyle = "rgb(" + (i + 1) * 16 + ",0,0)"; g.fill(r.path, "evenodd"); });
+    const d = g.getImageData(0, 0, W, H).data;
+    regionMap = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) {
+      const r = d[i * 4], ok = d[i * 4 + 1] === 0 && d[i * 4 + 2] === 0 && r % 16 === 0;
+      regionMap[i] = ok ? r / 16 : 0;
+    }
+    return regionMap;
+  }
+  function describePiece(p) {
+    const rm = getRegionMap(), votes = {};
+    for (let y = 0; y < p.h; y += 2) for (let x = 0; x < p.w; x += 2) {
+      if (!p.mask[y * p.w + x]) continue;
+      const r = rm[(y + p.miny) * W + x + p.minx];
+      if (r) votes[r] = (votes[r] || 0) + 1;
+    }
+    let best = 0, bc = 0;
+    for (const k in votes) if (votes[k] > bc) { bc = votes[k]; best = +k; }
+    p.region = best ? MAP.regions[best - 1] : null;
+    p.cities = MAP.cities.filter((c) => {
+      const x = Math.round(c.x) - p.minx, y = Math.round(c.y) - p.miny;
+      return x >= 0 && y >= 0 && x < p.w && y < p.h && p.mask[y * p.w + x];
+    }).sort((a, b) => a.rank - b.rank);
+  }
+  let toastTimer = null;
+  function showPieceToast(p) {
+    if (p.region === undefined) describePiece(p);
+    if (!p.region) return;
+    const v = state.view, el = $("#toast");
+    let text = settings.lang === "en" ? p.region.en : p.region.bs;
+    if (p.cities.length) text += " · 📍 " + p.cities.slice(0, 2).map((c) => c.name).join(", ");
+    el.textContent = text;
+    const cx = v.ox + (v.board.x + p.minx + p.w / 2) * v.scale, cy = v.oy + (v.board.y + p.miny + p.h / 2) * v.scale;
+    el.style.left = cx + "px"; el.style.top = cy + "px";
+    el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+  }
+
   function buildPieces(label, n) {
     const pieces = [];
     for (let k = 0; k < n; k++) pieces.push({ id: k, minx: W, miny: H, maxx: -1, maxy: -1 });
@@ -607,10 +653,13 @@
     resetHelpers();
     saveStore();
     syncUI();
+    // the top 10 is kept separately for every piece count, background and shape
+    state.bg = settings.bg; state.shape = settings.shape;
+    state.board = n + "-" + state.bg + "-" + state.shape;
     $("#win").hidden = true;
     $("#loading").classList.remove("hide");
     stopTimer();
-    state.won = false; state.elapsed = 0; state.start = 0; state.penalty = 0;
+    state.won = false; state.elapsed = 0; state.start = 0; state.penalty = 0; state.paused = false;
     drags.clear();
     updateStatus();
     setTimeout(() => {
@@ -629,7 +678,7 @@
       state.elapsed = 0;
       startTimer(); // the clock runs from the moment the pieces are laid out
       updateStatus();
-      if (settings.hint) addPenalty();
+      if (settings.hint) addPenalty("hint");
       requestDraw();
     }, 30);
   }
@@ -939,6 +988,7 @@
     state.placedLayer.getContext("2d").drawImage(p.canvas, (p.minx - PAD) * RES, (p.miny - PAD) * RES);
     sound("snap");
     updateStatus();
+    showPieceToast(p);
     requestDraw();
     if (state.pieces.every((q) => q.placed)) { win(); return; }
     growWaitingPieces();
@@ -956,19 +1006,23 @@
   }
   function stopTimer() { if (state.timer) clearInterval(state.timer); state.timer = null; }
   /* ---------------- hint penalty ---------------- */
-  const HINT_PENALTY = 15000; // each time the hint is switched on, 15 s are added to the clock
-  function addPenalty() {
-    if (state.won || !state.pieces.length || !state.timer) return;
-    state.start -= HINT_PENALTY;
+  // switching on a helper adds time: hint 15 s, cantons 10 s, cities 10 s
+  const PENALTY = { hint: 15000, cantons: 10000, cities: 10000 };
+  const PENALTY_BTN = { hint: "#tHint", cantons: "#tCantons", cities: "#tCities" };
+  function addPenalty(kind) {
+    kind = kind || "hint";
+    const ms = PENALTY[kind];
+    if (state.won || !state.pieces.length || !state.start) return;
+    state.start -= ms;
     state.elapsed = performance.now() - state.start;
-    state.penalty = (state.penalty || 0) + HINT_PENALTY;
+    state.penalty = (state.penalty || 0) + ms;
     updateStatus();
     sound("penalty");
     // eye candy: a "+15 s" bubble flies from the hint button to the clock, which then shakes red
-    const from = $("#tHint").getBoundingClientRect(), to = $("#time").getBoundingClientRect();
+    const from = $(PENALTY_BTN[kind]).getBoundingClientRect(), to = $("#time").getBoundingClientRect();
     const pop = document.createElement("div");
     pop.className = "penalty-pop";
-    pop.textContent = "+" + HINT_PENALTY / 1000 + " s";
+    pop.textContent = "+" + ms / 1000 + " s";
     pop.style.left = from.left + from.width / 2 + "px";
     pop.style.top = from.top + from.height / 2 + "px";
     document.body.appendChild(pop);
@@ -987,7 +1041,7 @@
   function updateStatus() {
     const pen = $("#penalty");
     pen.hidden = !state.penalty;
-    pen.textContent = "💡 +" + Math.round((state.penalty || 0) / 1000) + " s";
+    pen.textContent = "⚠️ +" + Math.round((state.penalty || 0) / 1000) + " s";
     const done = state.pieces.filter((p) => p.placed).length;
     $("#placed").textContent = `${done} / ${state.pieces.length || settings.n}`;
     $("#time").textContent = fmt(state.elapsed);
@@ -1033,7 +1087,7 @@
     list.push(entry);
     list.sort((a, b) => a.ms - b.ms);
     const localRank = list.indexOf(entry) + 1;
-    winInfo = { n, ms, shape: settings.shape, localId: null, globalPending: false, globalId: null };
+    winInfo = { n, ms, shape: state.shape, bg: state.bg, board: state.board, localId: null, globalPending: false, globalId: null };
     $("#record").hidden = true;
     // fresh nickname form for this game
     $("#playerName").value = settings.lastName || "";
@@ -1048,7 +1102,7 @@
     renderScope("win");
     if (online.enabled) {
       const info = winInfo;
-      online.top(n).then((top) => {
+      online.top(info.board).then((top) => {
         if (winInfo !== info) return;
         const globalRank = top.filter((e) => e.ms <= ms).length + 1;
         if (globalRank <= 10) {
@@ -1068,7 +1122,7 @@
     const info = winInfo;
     if (!info || !info.globalPending || !online.enabled) return Promise.resolve();
     info.globalPending = false;
-    return online.submit(info.n, name, info.ms, info.shape)
+    return online.submit(info.board, info.n, name, info.ms, info.shape, info.bg)
       .then((doc) => { info.globalId = doc.id; })
       .catch(() => { /* offline: ignore */ });
   }
@@ -1105,15 +1159,19 @@
     const scope = scopes[which];
     card.querySelectorAll("[data-scope]").forEach((bt) => bt.setAttribute("aria-pressed", bt.dataset.scope === scope ? "true" : "false"));
     const n = which === "win" && winInfo ? winInfo.n : String(settings.n);
+    const bg = which === "win" && winInfo ? winInfo.bg : settings.bg;
+    const shape = which === "win" && winInfo ? winInfo.shape : settings.shape;
+    const board = n + "-" + bg + "-" + shape;
     if (which === "rank") {
-      $("#rankingSub").textContent = tn(scope === "global" ? "rankingSubGlobal" : "rankingSub", n);
+      $("#rankingSub").textContent = tn(scope === "global" ? "rankingSubGlobal" : "rankingSub", n)
+        .replace("{bg}", t(bg === "map" ? "bgMap" : "bgFlag")).replace("{shape}", t(shape === "wavy" ? "shapeWavy" : "shapeClassic"));
     }
     if (scope === "local") {
       renderList(el, readScores()[n] || [], which === "win" && winInfo ? winInfo.localId : null);
       return;
     }
     message(el, t("loadingScores"));
-    online.top(n).then((list) => {
+    online.top(board).then((list) => {
       if (scopes[which] !== "global") return;
       renderList(el, list, which === "win" && winInfo ? winInfo.globalId : null);
     }).catch(() => { if (scopes[which] === "global") message(el, t("offline")); });
@@ -1130,6 +1188,11 @@
     e.preventDefault();
     if (!winInfo) return;
     const name = $("#playerName").value.trim().slice(0, 20);
+    if (window.BihNameFilter && window.BihNameFilter.isBad(name)) {
+      $("#recordText").textContent = t("badName");
+      $("#playerName").select();
+      return;
+    }
     if (winInfo.localId) {
       const all = readScores();
       const entry = (all[winInfo.n] || []).find((x) => x.id === winInfo.localId);
@@ -1143,7 +1206,9 @@
   });
 
   function leaveWin() {
-    if (winInfo && winInfo.globalPending) flushGlobal($("#playerName").value.trim().slice(0, 20));
+    let name = $("#playerName").value.trim().slice(0, 20);
+    if (window.BihNameFilter && window.BihNameFilter.isBad(name)) name = "";
+    if (winInfo && winInfo.globalPending) flushGlobal(name);
   }
 
   function openRanking() {
@@ -1257,14 +1322,16 @@
     document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
     $("#rankBtn").title = t("ranking");
     $("#tidyBtn").title = t("tidy");
+    $("#settingsBtn").title = t("settings");
+    $("#settingsBtn").setAttribute("aria-label", t("settings"));
     $("#shareBtn").title = t("shareGameTitle");
     $("#shareBtn").setAttribute("aria-label", t("shareGameTitle"));
     $("#tidyBtn").setAttribute("aria-label", t("tidy"));
     $("#rankBtn").setAttribute("aria-label", t("ranking"));
     $("#tSound").setAttribute("aria-label", t("sound"));
     $("#tSound").title = t("sound");
-    $("#tCantons").title = t("cantons");
-    $("#tCities").title = t("cities");
+    $("#tCantons").title = t("cantonsTitle");
+    $("#tCities").title = t("citiesTitle");
     $("#tHint").title = t("hintTitle");
     $("#fullscreen").title = t("fullscreen");
     $("#fullscreen").setAttribute("aria-label", t("fullscreen"));
@@ -1289,15 +1356,17 @@
 
   let countTimer = null;
   function setCount(n, immediate) {
-    settings.n = clampN(n);
-    saveStore(); syncUI();
+    const v = clampN(n);
     clearTimeout(countTimer);
+    if (inProgress()) { requestNewGame(() => { settings.n = v; }); return; }
+    settings.n = v;
+    saveStore(); syncUI();
     countTimer = setTimeout(newGame, immediate ? 0 : 450);
   }
   $("#minus").onclick = () => setCount(settings.n - 1);
   $("#plus").onclick = () => setCount(settings.n + 1);
   $("#count").addEventListener("change", (e) => setCount(parseInt(e.target.value, 10), true));
-  $("#newGame").onclick = () => { leaveWin(); newGame(); };
+  $("#newGame").onclick = () => { leaveWin(); requestNewGame(() => {}); };
   $("#again").onclick = () => { leaveWin(); newGame(); };
   $("#harder").onclick = () => { leaveWin(); setCount(settings.n + 10, true); };
   $("#look").onclick = () => { leaveWin(); $("#win").hidden = true; };
@@ -1306,18 +1375,54 @@
     settings[key] = !settings[key]; saveStore(); syncUI();
     if (rerender) rerenderMap(); else requestDraw();
   };
-  $("#tCantons").onclick = toggle("cantons", true);
-  $("#tCities").onclick = toggle("cities", true);
-  $("#tHint").onclick = () => {
-    settings.hint = !settings.hint; saveStore(); syncUI(); requestDraw();
-    if (settings.hint) addPenalty();
+  // helpers cost time when switched on
+  const helper = (key, rerender) => () => {
+    settings[key] = !settings[key]; saveStore(); syncUI();
+    if (rerender) rerenderMap(); else requestDraw();
+    if (settings[key]) addPenalty(key);
   };
+  $("#tCantons").onclick = helper("cantons", true);
+  $("#tCities").onclick = helper("cities", true);
+  $("#tHint").onclick = helper("hint", false);
   $("#tSound").onclick = toggle("sound", false);
-  $("#bgMap").onclick = () => { settings.bg = "map"; saveStore(); syncUI(); rerenderMap(); };
-  const setShape = (v) => () => { if (settings.shape === v) return; settings.shape = v; saveStore(); syncUI(); newGame(); };
+
+  // a game in progress is only thrown away after asking
+  let pendingChange = null;
+  function inProgress() { return !state.won && state.pieces.some((p) => p.placed); }
+  function requestNewGame(apply) {
+    if (inProgress()) {
+      pendingChange = apply;
+      $("#confirmDlg").hidden = false;
+      return;
+    }
+    apply(); saveStore(); syncUI(); newGame();
+  }
+  $("#confirmYes").onclick = () => {
+    $("#confirmDlg").hidden = true;
+    const a = pendingChange; pendingChange = null;
+    if (a) { a(); saveStore(); syncUI(); newGame(); }
+  };
+  $("#confirmNo").onclick = () => { $("#confirmDlg").hidden = true; pendingChange = null; syncUI(); };
+
+  const setBg = (v) => () => { if (settings.bg !== v) requestNewGame(() => { settings.bg = v; }); };
+  $("#bgMap").onclick = setBg("map");
+  $("#bgFlag").onclick = setBg("flag");
+  const setShape = (v) => () => { if (settings.shape !== v) requestNewGame(() => { settings.shape = v; }); };
   $("#shapeClassic").onclick = setShape("classic");
   $("#shapeWavy").onclick = setShape("wavy");
-  $("#bgFlag").onclick = () => { settings.bg = "flag"; saveStore(); syncUI(); rerenderMap(); };
+
+  // settings panel
+  const panel = $("#settingsPanel");
+  $("#settingsBtn").onclick = (e) => {
+    e.stopPropagation();
+    panel.hidden = !panel.hidden;
+    $("#settingsBtn").setAttribute("aria-expanded", panel.hidden ? "false" : "true");
+  };
+  document.addEventListener("pointerdown", (e) => {
+    if (!panel.hidden && !panel.contains(e.target) && !$("#settingsBtn").contains(e.target) && !$("#confirmDlg").contains(e.target)) {
+      panel.hidden = true; $("#settingsBtn").setAttribute("aria-expanded", "false");
+    }
+  });
   const setLang = (l) => () => { settings.lang = l; saveStore(); syncUI(); rerenderMap(); };
   $("#langBs").onclick = setLang("bs");
   $("#langEn").onclick = setLang("en");
@@ -1355,11 +1460,21 @@
     document.addEventListener("webkitfullscreenchange", fsSync);
   }
 
+  // the clock pauses while the game is not visible (other tab, minimised window)
+  document.addEventListener("visibilitychange", () => {
+    if (!state.start || state.won) return;
+    if (document.hidden) {
+      if (state.timer) { state.elapsed = performance.now() - state.start; stopTimer(); state.paused = true; }
+    } else if (state.paused) {
+      state.paused = false; startTimer();
+    }
+  });
+
   let resizeTimer = null;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => layout(false), 80); });
 
   // test hook: solve the puzzle (used by automated checks)
-  window.__bihPuzzle = { state, redraw: () => requestDraw(), placeOne() { const p = state.pieces.find((q) => !q.placed); if (p) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } }, solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__bihPuzzle = { state, redraw: () => requestDraw(), placeOne() { const p = state.pieces.find((q) => !q.placed); if (p) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } }, solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
 
   syncUI();
   layout(true);

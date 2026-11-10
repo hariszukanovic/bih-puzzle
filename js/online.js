@@ -24,8 +24,9 @@ window.BihOnline = (function () {
 
   return {
     enabled: true,
-    top: function (pieces) {
-      return fetch(base + "/boards/" + pieces + ":runQuery" + key, {
+    // board = "<pieces>-<bg>-<shape>", e.g. "22-flag-classic"
+    top: function (board) {
+      return fetch(base + "/boards/" + encodeURIComponent(board) + ":runQuery" + key, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -39,8 +40,8 @@ window.BihOnline = (function () {
         return rows.filter(function (r) { return r.document; }).map(function (r) { return parse(r.document); });
       });
     },
-    submit: function (pieces, name, ms, shape) {
-      return fetch(base + "/boards/" + pieces + "/scores" + key, {
+    submit: function (board, pieces, name, ms, shape, bg) {
+      return fetch(base + "/boards/" + encodeURIComponent(board) + "/scores" + key, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -49,6 +50,7 @@ window.BihOnline = (function () {
             ms: { integerValue: String(Math.round(ms)) },
             pieces: { integerValue: String(pieces) },
             shape: { stringValue: shape === "wavy" ? "wavy" : "classic" },
+            bg: { stringValue: bg === "map" ? "map" : "flag" },
             date: { timestampValue: new Date().toISOString() },
           },
         }),

@@ -202,3 +202,40 @@ body, button, input { touch-action: manipulation; }
 }
 .penalty-pop.in { opacity: 1; transform: translate(-50%, -50%) translateY(40px) scale(1.2); }
 .penalty-pop.go { transition: transform .65s cubic-bezier(.5,-0.3,.6,1); }
+
+/* helper cost badge */
+.chip .cost { font-size: 11px; font-weight: 800; color: #fff; background: #e53935; border-radius: 999px; padding: 0 6px; margin-left: 2px; vertical-align: 1px; }
+@media (max-width: 560px) { .chip .cost { display: none; } }
+
+/* settings panel */
+.bar { position: relative; z-index: 20; }
+.panel {
+  position: absolute; right: 12px; top: calc(100% + 6px); z-index: 30;
+  background: #fff; border: 3px solid var(--yellow); border-radius: 22px; padding: 14px 18px 12px;
+  box-shadow: 0 16px 40px rgba(20,40,110,.3); min-width: 300px; max-width: calc(100vw - 24px);
+  animation: pop .25s cubic-bezier(.2,1.6,.4,1);
+}
+.panel[hidden] { display: none; }
+.panel h3 { margin: 0 0 8px; font-size: 22px; color: var(--blue); }
+.panel .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 6px 0; border-top: 1px solid #eef2ff; }
+.panel .row:first-of-type { border-top: 0; }
+.panel .label { display: inline !important; }
+.panel .note { margin: 8px 0 0; font-size: 13px; color: #556; max-width: 320px; }
+#settingsBtn[aria-expanded="true"] { background: var(--chip-on); }
+
+/* name of the canton when a piece snaps in */
+.toast {
+  position: absolute; z-index: 15; pointer-events: none; white-space: nowrap;
+  transform: translate(-50%, -50%) scale(.6); opacity: 0;
+  background: rgba(30,58,138,.92); color: #fff; font: 800 20px var(--font);
+  padding: 6px 16px; border-radius: 999px; border: 3px solid var(--yellow);
+  box-shadow: 0 8px 20px rgba(20,40,110,.35);
+}
+.toast.show { animation: toast 1.8s ease forwards; }
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  20% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -90%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(.95); }
+}
