@@ -134,3 +134,11 @@ body, button, input { touch-action: manipulation; }
   .card p { font-size: 24px; }
   .trophy { font-size: 84px; }
 }
+
+/* "BiH" in the colours of the flag */
+.bih { letter-spacing: 1px; }
+.bih .b { color: #002395; }
+.bih .i {
+  color: #fecb00;
+  text-shadow: -1.5px -1.5px 0 #002395, 1.5px -1.5px 0 #002395, -1.5px 1.5px 0 #002395, 1.5px 1.5px 0 #002395;
+}

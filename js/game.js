@@ -97,6 +97,25 @@
     }
   }
 
+  // vivid rainbow from west (red) to east (blue), light in the north and
+  // darker in the south, so each part of the map has a clearly different colour
+  function drawCornerGradient(g) {
+    const gw = 120, gh = Math.round(120 * H / W);
+    const c = document.createElement("canvas");
+    c.width = gw; c.height = gh;
+    const cg = c.getContext("2d");
+    for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) {
+      const fx = x / (gw - 1), fy = y / (gh - 1);
+      const hue = 0 + fx * 250 - fy * 20;
+      const light = 72 - fy * 26;
+      cg.fillStyle = `hsl(${hue}, 88%, ${light}%)`;
+      cg.fillRect(x, y, 1, 1);
+    }
+    g.imageSmoothingEnabled = true;
+    if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
+    g.drawImage(c, 0, 0, W, H);
+  }
+
   function textHalo(g, text, x, y, size, fill, halo, weight) {
     g.font = `${weight || 700} ${size}px "Baloo 2", "Trebuchet MS", sans-serif`;
     g.lineJoin = "round";
@@ -132,17 +151,20 @@
     g.clip(outlinePath, "evenodd");
     if (flag) {
       drawFlag(g);
-    } else if (settings.cantons) {
-      for (const r of MAP.regions) { g.fillStyle = COLORS[r.id] || "#ddd"; g.fill(r.path, "evenodd"); }
     } else {
-      const grd = g.createLinearGradient(0, 0, W, H);
-      grd.addColorStop(0, "#9be38f"); grd.addColorStop(0.5, "#7fd3a0"); grd.addColorStop(1, "#ffe08a");
-      g.fillStyle = grd;
-      g.fillRect(0, 0, W, H);
+      // strong corner-to-corner colour gradient: every part of the map has its own
+      // colour, so a piece's colour tells where it belongs
+      drawCornerGradient(g);
+      if (settings.cantons) {
+        // cantons keep their own colour, mixed with the gradient
+        g.globalAlpha = 0.35;
+        for (const r of MAP.regions) { g.fillStyle = COLORS[r.id] || "#ddd"; g.fill(r.path, "evenodd"); }
+        g.globalAlpha = 1;
+      }
     }
     // soft light for a friendly "3D" look
     const light = g.createRadialGradient(W * 0.35, H * 0.3, 40, W * 0.45, H * 0.45, W * 0.8);
-    light.addColorStop(0, "rgba(255,255,255,0.28)");
+    light.addColorStop(0, "rgba(255,255,255,0.18)");
     light.addColorStop(1, "rgba(255,255,255,0)");
     g.fillStyle = light;
     g.fillRect(0, 0, W, H);
@@ -973,6 +995,7 @@
   function applyLang() {
     document.documentElement.lang = settings.lang;
     document.title = t("title");
+    $("#titleWord").textContent = t("titleWord");
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     $("#tSound").setAttribute("aria-label", t("sound"));
     $("#tSound").title = t("sound");

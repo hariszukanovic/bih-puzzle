@@ -1,4 +1,4 @@
-# Slagalica BiH 🧩
+# BiH Slagalica 🧩
 
 Online slagalica (puzzle) karte Bosne i Hercegovine za djecu. Radi u web pregledniku, na računaru i tabletu/mobitelu.
 

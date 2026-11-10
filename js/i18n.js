@@ -1,6 +1,7 @@
 window.I18N = {
   bs: {
-    title: "Slagalica BiH",
+    title: "BiH Slagalica",
+    titleWord: "Slagalica",
     tagline: "Složi kartu Bosne i Hercegovine!",
     pieces: "Dijelovi",
     cantons: "Kantoni",
@@ -26,6 +27,7 @@ window.I18N = {
   },
   en: {
     title: "BiH Puzzle",
+    titleWord: "Puzzle",
     tagline: "Put together the map of Bosnia and Herzegovina!",
     pieces: "Pieces",
     cantons: "Cantons",
