@@ -994,7 +994,8 @@
   function writeScores(all) {
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(all)); } catch (e) { /* storage blocked */ }
   }
-  document.querySelectorAll("[data-online]").forEach((el) => { el.hidden = !online.enabled; });
+  // only the shared list of all players is shown; the device list is a fallback when offline/unconfigured
+  document.querySelectorAll("[data-online]").forEach((el) => { el.hidden = true; });
 
   let winInfo = null; // the finished game: { n, ms, shape, localId, globalPending, globalId }
   const scopes = { win: online.enabled ? "global" : "local", rank: online.enabled ? "global" : "local" };
@@ -1017,7 +1018,7 @@
       all[n] = list.slice(0, 10);
       writeScores(all);
       winInfo.localId = entry.id;
-      showNameForm(t("newRecord").replace("{r}", localRank));
+      if (!online.enabled) showNameForm(t("newRecord").replace("{r}", localRank));
     }
     renderScope("win");
     if (online.enabled) {
