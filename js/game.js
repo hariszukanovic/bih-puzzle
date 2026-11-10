@@ -1126,6 +1126,14 @@
     $("#ranking").hidden = false;
   }
   $("#rankBtn").onclick = openRanking;
+  // lay all remaining pieces out neatly again (e.g. when some are hidden under others)
+  $("#tidyBtn").onclick = () => {
+    const loose = state.pieces.filter((p) => !p.placed && !isDragged(p) && !p.animating);
+    if (!loose.length) return;
+    scatter(loose);
+    sound("pick");
+    requestDraw();
+  };
   $("#rankClose").onclick = () => { $("#ranking").hidden = true; };
 
 
@@ -1220,6 +1228,8 @@
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
     $("#rankBtn").title = t("ranking");
+    $("#tidyBtn").title = t("tidy");
+    $("#tidyBtn").setAttribute("aria-label", t("tidy"));
     $("#rankBtn").setAttribute("aria-label", t("ranking"));
     $("#tSound").setAttribute("aria-label", t("sound"));
     $("#tSound").title = t("sound");
