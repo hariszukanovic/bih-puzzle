@@ -1,0 +1,9 @@
+{
+  "name": "BiH Slagalica",
+  "short_name": "BiH Slagalica",
+  "start_url": "./",
+  "display": "fullscreen",
+  "background_color": "#b9e7ff",
+  "theme_color": "#1e3a8a",
+  "icons": [{ "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

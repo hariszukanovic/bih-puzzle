@@ -16,7 +16,7 @@
   const confettiCanvas = $("#confetti");
 
   /* ---------------- settings ---------------- */
-  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs" };
+  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs", fullscreen: true };
   const settings = Object.assign({}, DEFAULTS, readStore());
   const qs = new URLSearchParams(location.search);
   if (qs.get("lang") === "en" || qs.get("lang") === "bs") settings.lang = qs.get("lang");
@@ -1258,12 +1258,26 @@
   if (fsReq) {
     const btn = $("#fullscreen");
     btn.hidden = false;
-    btn.onclick = () => {
-      try {
-        const r = fsActive() ? fsExit.call(document) : fsReq.call(fsEl);
-        if (r && r.catch) r.catch(() => {});
-      } catch (e) { /* not allowed */ }
+    const enterFs = () => {
+      try { const r = fsReq.call(fsEl); if (r && r.catch) r.catch(() => {}); } catch (e) { /* not allowed */ }
     };
+    btn.onclick = () => {
+      // the button also remembers the choice for next time
+      settings.fullscreen = !fsActive();
+      saveStore();
+      if (fsActive()) { try { const r = fsExit.call(document); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
+      else enterFs();
+    };
+    // Browsers only allow full screen after a user action, so it starts at the first tap or click.
+    let autoFsDone = false;
+    const autoFs = (e) => {
+      if (autoFsDone) return;
+      if (e && e.target && e.target.closest && e.target.closest("#fullscreen")) return;
+      autoFsDone = true;
+      ["pointerup", "touchend", "click", "keydown"].forEach((ev) => document.removeEventListener(ev, autoFs, true));
+      if (settings.fullscreen && !fsActive()) enterFs();
+    };
+    ["pointerup", "touchend", "click", "keydown"].forEach((ev) => document.addEventListener(ev, autoFs, true));
     const fsSync = () => { btn.setAttribute("aria-pressed", fsActive() ? "true" : "false"); setTimeout(() => layout(false), 120); };
     document.addEventListener("fullscreenchange", fsSync);
     document.addEventListener("webkitfullscreenchange", fsSync);
