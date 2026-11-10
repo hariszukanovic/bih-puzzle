@@ -748,7 +748,7 @@
     ctx.fillStyle = showHint ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.6)";
     ctx.fill(outlinePath, "evenodd");
     if (showHint) {
-      ctx.globalAlpha = 0.62;
+      ctx.globalAlpha = 0.5;
       ctx.drawImage(state.map, 0, 0, W, H);
       ctx.globalAlpha = 1;
     }
@@ -757,7 +757,16 @@
     ctx.strokeStyle = "rgba(30,58,138,0.55)";
     ctx.stroke(outlinePath);
     ctx.setLineDash([]);
-    if (state.placedLayer) ctx.drawImage(state.placedLayer, 0, 0, W, H);
+    if (state.placedLayer) {
+      // placed pieces sit visibly on top of the hint picture: full colour plus a shadow
+      ctx.shadowColor = "rgba(10,30,80,0.45)";
+      ctx.shadowBlur = 8 * v.scale * dpr;
+      ctx.shadowOffsetY = 3 * v.scale * dpr;
+      ctx.drawImage(state.placedLayer, 0, 0, W, H);
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    }
     ctx.restore();
 
     // loose pieces
@@ -1264,7 +1273,7 @@
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => layout(false), 80); });
 
   // test hook: solve the puzzle (used by automated checks)
-  window.__bihPuzzle = { state, solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
+  window.__bihPuzzle = { state, redraw: () => requestDraw(), solve() { for (const p of state.pieces) if (!p.placed) { p.x = state.view.board.x + p.minx; p.y = state.view.board.y + p.miny; place(p); } } };
 
   syncUI();
   layout(true);
