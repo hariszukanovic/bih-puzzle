@@ -239,3 +239,8 @@ body, button, input { touch-action: manipulation; }
   80% { opacity: 1; transform: translate(-50%, -90%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -110%) scale(.95); }
 }
+
+/* clock running faster while help is on */
+.status.fast #time { color: #c62828; }
+.status.fast .penalty { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { 50% { opacity: .45; } }

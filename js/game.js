@@ -659,7 +659,7 @@
     $("#win").hidden = true;
     $("#loading").classList.remove("hide");
     stopTimer();
-    state.won = false; state.elapsed = 0; state.start = 0; state.penalty = 0; state.paused = false;
+    state.won = false; state.elapsed = 0; state.start = 0; state.penalty = 0; state.paused = false; state.lastTick = 0;
     drags.clear();
     updateStatus();
     setTimeout(() => {
@@ -678,7 +678,6 @@
       state.elapsed = 0;
       startTimer(); // the clock runs from the moment the pieces are laid out
       updateStatus();
-      if (settings.hint) addPenalty("hint");
       requestDraw();
     }, 30);
   }
@@ -999,30 +998,38 @@
     const s = Math.floor(ms / 1000);
     return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
   }
+  // The clock adds real time × the current rate; helpers make it run faster.
+  function clockRate() { return 1 + (settings.hint ? 2 : 0) + (settings.cantons ? 1 : 0) + (settings.cities ? 1 : 0); }
+  function tick() {
+    const now = performance.now();
+    if (state.lastTick) {
+      const dt = now - state.lastTick, extra = clockRate() - 1;
+      state.elapsed += dt * (1 + extra);
+      state.penalty = (state.penalty || 0) + dt * extra;
+    }
+    state.lastTick = now;
+  }
   function startTimer() {
-    state.start = performance.now() - state.elapsed;
+    state.start = state.start || 1;
+    state.lastTick = performance.now();
     stopTimer();
-    state.timer = setInterval(() => { state.elapsed = performance.now() - state.start; $("#time").textContent = fmt(state.elapsed); }, 250);
+    state.timer = setInterval(() => { tick(); updateStatus(); }, 250);
   }
   function stopTimer() { if (state.timer) clearInterval(state.timer); state.timer = null; }
-  /* ---------------- hint penalty ---------------- */
-  // switching on a helper adds time: hint 15 s, cantons 10 s, cities 10 s
-  const PENALTY = { hint: 15000, cantons: 10000, cities: 10000 };
+  /* ---------------- help penalty ---------------- */
+  // while a helper is on the clock runs faster: hint ×3, cantons or cities ×2 (they add up)
   const PENALTY_BTN = { hint: "#tHint", cantons: "#tCantons", cities: "#tCities" };
   function addPenalty(kind) {
     kind = kind || "hint";
-    const ms = PENALTY[kind];
     if (state.won || !state.pieces.length || !state.start) return;
-    state.start -= ms;
-    state.elapsed = performance.now() - state.start;
-    state.penalty = (state.penalty || 0) + ms;
+    if (state.timer) tick();
     updateStatus();
     sound("penalty");
     // eye candy: a "+15 s" bubble flies from the hint button to the clock, which then shakes red
     const from = $(PENALTY_BTN[kind]).getBoundingClientRect(), to = $("#time").getBoundingClientRect();
     const pop = document.createElement("div");
     pop.className = "penalty-pop";
-    pop.textContent = "+" + ms / 1000 + " s";
+    pop.textContent = "⏩ ×" + clockRate();
     pop.style.left = from.left + from.width / 2 + "px";
     pop.style.top = from.top + from.height / 2 + "px";
     document.body.appendChild(pop);
@@ -1039,9 +1046,11 @@
   }
 
   function updateStatus() {
-    const pen = $("#penalty");
-    pen.hidden = !state.penalty;
-    pen.textContent = "⚠️ +" + Math.round((state.penalty || 0) / 1000) + " s";
+    const pen = $("#penalty"), rate = clockRate();
+    const penS = Math.round((state.penalty || 0) / 1000);
+    pen.hidden = !penS && rate === 1;
+    pen.textContent = (rate > 1 && !state.won ? "⏩ ×" + rate + " " : "") + (penS ? "⚠️ +" + penS + " s" : "");
+    document.querySelector(".status").classList.toggle("fast", rate > 1 && !state.won);
     const done = state.pieces.filter((p) => p.placed).length;
     $("#placed").textContent = `${done} / ${state.pieces.length || settings.n}`;
     $("#time").textContent = fmt(state.elapsed);
@@ -1049,9 +1058,9 @@
 
   /* ---------------- win ---------------- */
   function win() {
+    tick();
     state.won = true;
     stopTimer();
-    state.elapsed = performance.now() - state.start;
     updateStatus();
     setTimeout(() => {
       redrawPlaced();
@@ -1377,7 +1386,8 @@
   };
   // helpers cost time when switched on
   const helper = (key, rerender) => () => {
-    settings[key] = !settings[key]; saveStore(); syncUI();
+    if (state.timer) tick();
+    settings[key] = !settings[key]; saveStore(); syncUI(); updateStatus();
     if (rerender) rerenderMap(); else requestDraw();
     if (settings[key]) addPenalty(key);
   };
@@ -1464,7 +1474,7 @@
   document.addEventListener("visibilitychange", () => {
     if (!state.start || state.won) return;
     if (document.hidden) {
-      if (state.timer) { state.elapsed = performance.now() - state.start; stopTimer(); state.paused = true; }
+      if (state.timer) { tick(); stopTimer(); state.paused = true; }
     } else if (state.paused) {
       state.paused = false; startTimer();
     }
