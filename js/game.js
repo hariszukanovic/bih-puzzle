@@ -507,7 +507,7 @@
         p.edge[y * p.w + x] = e;
       }
       p.placed = false;
-      p.x = 0; p.y = 0;
+      p.x = 0; p.y = 0; p.s = 1;
     }
     return pieces;
   }
@@ -632,37 +632,63 @@
     state.view = v;
 
     if (!force && old && state.pieces.length) {
-      const loose = state.pieces.filter((p) => !p.placed);
-      if (old.land !== v.land) scatter(loose);
-      else for (const p of loose) {
-        p.x = Math.max(-p.w * 0.3, Math.min(v.tW - p.w * 0.7, p.x + (v.tray.x - old.tray.x)));
-        p.y = Math.max(-p.h * 0.3, Math.min(v.tH - p.h * 0.7, p.y));
-      }
+      const loose = state.pieces.filter((p) => !p.placed && !isDragged(p));
+      // re-lay the waiting pieces so they never pile up after a resize
+      scatter(loose);
     }
     requestDraw();
   }
 
+  /** Lay the pieces out in the tray without overlapping. If they do not all
+   *  fit at full size, they are shown smaller until picked up. */
   function scatter(list) {
-    const v = state.view, tr = v.tray, rnd = Math.random;
-    const placedRects = [];
-    const shuffled = list.slice().sort(() => rnd() - 0.5);
-    for (const p of shuffled) {
-      let best = null, bestOv = Infinity;
-      for (let tries = 0; tries < 30; tries++) {
-        const x = tr.x + rnd() * Math.max(0, tr.w - p.w);
-        const y = tr.y + rnd() * Math.max(0, tr.h - p.h);
-        let ov = 0;
-        for (const r of placedRects) {
-          const ix = Math.max(0, Math.min(x + p.w, r.x + r.w) - Math.max(x, r.x));
-          const iy = Math.max(0, Math.min(y + p.h, r.y + r.h) - Math.max(y, r.y));
-          ov += ix * iy;
-        }
-        if (ov < bestOv) { bestOv = ov; best = { x, y }; }
-        if (ov === 0) break;
+    const tr = state.view.tray;
+    const items = list.slice().sort((p, q) => q.h - p.h); // tallest first packs best
+    let lo = 0.15, hi = 1, best = null;
+    const full = pack(items, tr, 1);
+    if (full) best = { s: 1, rows: full };
+    else {
+      for (let it = 0; it < 18; it++) {
+        const mid = (lo + hi) / 2, rows = pack(items, tr, mid);
+        if (rows) { lo = mid; best = { s: mid, rows }; } else hi = mid;
       }
-      p.x = best.x; p.y = best.y;
-      placedRects.push({ x: p.x, y: p.y, w: p.w, h: p.h });
     }
+    if (!best) best = { s: lo, rows: pack(items, tr, lo) || [items] };
+    const s = best.s, rows = best.rows;
+    for (const r of rows) r.sort(() => Math.random() - 0.5);
+    const gap = 6;
+    const usedH = rows.reduce((a, r) => a + Math.max(...r.map((p) => p.h * s)), 0);
+    const vgap = Math.max(gap, (tr.h - usedH) / (rows.length + 1));
+    let y = tr.y + vgap;
+    for (const r of rows) {
+      const rowH = Math.max(...r.map((p) => p.h * s));
+      const rowW = r.reduce((a, p) => a + p.w * s, 0);
+      const hgap = Math.max(gap, (tr.w - rowW) / (r.length + 1));
+      let x = tr.x + hgap;
+      for (const p of r) {
+        p.s = s;
+        p.x = x;
+        p.y = y + (rowH - p.h * s) / 2;
+        x += p.w * s + hgap;
+      }
+      y += rowH + vgap;
+    }
+  }
+
+  // shelf packing; returns rows of pieces, or null if they do not fit
+  function pack(items, tr, s) {
+    const gap = 6, rows = [];
+    let row = [], x = 0, y = 0, rowH = 0;
+    for (const p of items) {
+      const w = p.w * s, h = p.h * s;
+      if (w > tr.w) return null;
+      if (row.length && x + w > tr.w) {
+        rows.push(row); y += rowH + gap; row = []; x = 0; rowH = 0;
+      }
+      row.push(p); x += w + gap; rowH = Math.max(rowH, h);
+    }
+    if (row.length) rows.push(row);
+    return y + rowH <= tr.h ? rows : null;
   }
 
   /* ---------------- drawing ---------------- */
@@ -714,10 +740,10 @@
       const lift = isDragged(p) ? 1.05 : 1;
       if (lift !== 1) {
         ctx.save();
-        const cxp = p.x + p.w / 2, cyp = p.y + p.h / 2;
+        const cxp = p.x + (p.w * p.s) / 2, cyp = p.y + (p.h * p.s) / 2;
         ctx.translate(cxp, cyp); ctx.scale(lift, lift); ctx.translate(-cxp, -cyp);
       }
-      ctx.drawImage(p.shadow, p.x - PAD, p.y - PAD, p.w + 2 * PAD, p.h + 2 * PAD);
+      ctx.drawImage(p.shadow, p.x - PAD * p.s, p.y - PAD * p.s, (p.w + 2 * PAD) * p.s, (p.h + 2 * PAD) * p.s);
       if (lift !== 1) ctx.restore();
     }
   }
@@ -735,7 +761,7 @@
   }
 
   function inMask(p, x, y) {
-    const ax = Math.round(x - p.x), ay = Math.round(y - p.y);
+    const ax = Math.round((x - p.x) / p.s), ay = Math.round((y - p.y) / p.s);
     return ax >= 0 && ay >= 0 && ax < p.w && ay < p.h && p.mask[ay * p.w + ax] === 1;
   }
   function hit(p, x, y, tol) {
@@ -763,6 +789,11 @@
     const pt = toTable(cx, cy);
     const p = pick(pt, (coarse ? 28 : 6) / state.view.scale);
     if (!p) return false;
+    if (p.s !== 1) {
+      // pieces wait smaller in the tray and grow to full size when picked up
+      const lx = (pt.x - p.x) / p.s, ly = (pt.y - p.y) / p.s;
+      p.s = 1; p.x = pt.x - lx; p.y = pt.y - ly;
+    }
     drags.set(id, { p, dx: pt.x - p.x, dy: pt.y - p.y, coarse });
     state.order.splice(state.order.indexOf(p), 1);
     state.order.push(p);
@@ -843,6 +874,7 @@
 
   function place(p) {
     p.placed = true;
+    p.s = 1;
     p.shadow = null;
     state.placedLayer.getContext("2d").drawImage(p.canvas, (p.minx - PAD) * RES, (p.miny - PAD) * RES);
     sound("snap");
