@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slagalica BiH</title>
+<meta name="description" content="Složi kartu Bosne i Hercegovine! Online slagalica za djecu.">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <img src="img/icon.svg" alt="" width="40" height="40">
+    <div>
+      <h1 data-i18n="title">Slagalica BiH</h1>
+      <p class="tagline" data-i18n="tagline">Složi kartu Bosne i Hercegovine!</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="group pieces">
+      <span class="label" data-i18n="pieces">Dijelovi</span>
+      <button class="round" id="minus" aria-label="-">−</button>
+      <input id="count" type="number" min="2" max="80" value="22" inputmode="numeric" aria-label="pieces">
+      <button class="round" id="plus" aria-label="+">+</button>
+    </div>
+
+    <div class="group">
+      <button class="chip" id="tCantons" aria-pressed="true"><span aria-hidden="true">🗺️</span> <span class="txt" data-i18n="cantons">Kantoni</span></button>
+      <button class="chip" id="tCities" aria-pressed="true"><span aria-hidden="true">🏙️</span> <span class="txt" data-i18n="cities">Gradovi</span></button>
+      <button class="chip" id="tHint" aria-pressed="true"><span aria-hidden="true">💡</span> <span class="txt" data-i18n="hint">Pomoć</span></button>
+    </div>
+
+    <div class="group seg" role="group">
+      <span class="label" data-i18n="background">Pozadina</span>
+      <button class="segbtn" id="bgMap" aria-pressed="true" data-i18n="bgMap">Karta</button>
+      <button class="segbtn" id="bgFlag" aria-pressed="false" data-i18n="bgFlag">Zastava</button>
+    </div>
+
+    <div class="group">
+      <button class="chip icon" id="tSound" aria-pressed="true" aria-label="Zvuk">🔊</button>
+      <div class="seg lang" role="group" aria-label="Jezik / Language">
+        <button class="segbtn" id="langBs" aria-pressed="true">BS</button>
+        <button class="segbtn" id="langEn" aria-pressed="false">EN</button>
+      </div>
+      <button class="primary" id="newGame"><span aria-hidden="true">🔀</span> <span data-i18n="newGame">Nova igra</span></button>
+    </div>
+  </div>
+</header>
+
+<main id="stage">
+  <canvas id="board"></canvas>
+  <div class="status" aria-live="polite">
+    <span><span data-i18n="placed">Složeno</span>: <b id="placed">0 / 22</b></span>
+    <span>⏱ <b id="time">00:00</b></span>
+  </div>
+  <div class="loading" id="loading"><div class="spinner"></div><span data-i18n="loading">Režem slagalicu…</span></div>
+  <canvas id="confetti"></canvas>
+  <div class="win" id="win" hidden>
+    <div class="card">
+      <div class="trophy" aria-hidden="true">🏆</div>
+      <h2 data-i18n="winTitle">Bravo!</h2>
+      <p id="winText"></p>
+      <div class="actions">
+        <button class="primary" id="again" data-i18n="playAgain">Igraj ponovo</button>
+        <button class="chip" id="harder" data-i18n="harder">Više dijelova</button>
+        <button class="chip" id="look" data-i18n="look">Pogledaj kartu</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="js/mapdata.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
