@@ -613,6 +613,8 @@
       scatter(state.pieces);
       state.order = state.pieces.slice();
       $("#loading").classList.add("hide");
+      state.elapsed = 0;
+      startTimer(); // the clock runs from the moment the pieces are laid out
       updateStatus();
       requestDraw();
     }, 30);
@@ -936,9 +938,88 @@
       sound("win");
       confetti();
       showWinText();
+      recordScore();
       $("#win").hidden = false;
     }, 250);
   }
+
+  /* ---------------- top 10 (stored on this device) ---------------- */
+  const SCORE_KEY = "bih-puzzle-scores";
+  function readScores() {
+    try { return JSON.parse(localStorage.getItem(SCORE_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function writeScores(all) {
+    try { localStorage.setItem(SCORE_KEY, JSON.stringify(all)); } catch (e) { /* storage blocked */ }
+  }
+  let currentEntry = null;
+  function recordScore() {
+    const n = String(state.pieces.length);
+    const all = readScores();
+    const list = (all[n] || []).slice();
+    const entry = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), name: "", ms: Math.round(state.elapsed), date: new Date().toISOString().slice(0, 10) };
+    list.push(entry);
+    list.sort((a, b) => a.ms - b.ms);
+    const rank = list.indexOf(entry) + 1;
+    currentEntry = null;
+    $("#record").hidden = true;
+    if (rank <= 10) {
+      all[n] = list.slice(0, 10);
+      writeScores(all);
+      currentEntry = { n, id: entry.id, rank };
+      $("#record").hidden = false;
+      $("#recordText").textContent = t("newRecord").replace("{r}", rank);
+      $("#playerName").value = settings.lastName || "";
+      $("#saveName").disabled = false;
+      $("#saveName").textContent = t("save");
+    }
+    renderBoard($("#winBoard"), n, currentEntry && currentEntry.id);
+  }
+  function renderBoard(el, n, highlightId) {
+    const list = readScores()[n] || [];
+    el.innerHTML = "";
+    if (!list.length) {
+      const li = document.createElement("li");
+      li.className = "empty"; li.textContent = t("noScores");
+      el.appendChild(li); return;
+    }
+    list.forEach((e, i) => {
+      const li = document.createElement("li");
+      if (e.id === highlightId) li.className = "me";
+      const medal = ["🥇", "🥈", "🥉"][i] || (i + 1) + ".";
+      const a = document.createElement("span"); a.className = "pos"; a.textContent = medal;
+      const b = document.createElement("span"); b.className = "who"; b.textContent = e.name || t("anonymous");
+      const c = document.createElement("span"); c.className = "tm"; c.textContent = fmt(e.ms);
+      li.append(a, b, c);
+      el.appendChild(li);
+    });
+  }
+  $("#nameForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!currentEntry) return;
+    const name = $("#playerName").value.trim().slice(0, 20);
+    const all = readScores();
+    const entry = (all[currentEntry.n] || []).find((x) => x.id === currentEntry.id);
+    if (entry) { entry.name = name; writeScores(all); }
+    if (name) { settings.lastName = name; saveStore(); }
+    $("#saveName").textContent = t("saved");
+    $("#saveName").disabled = true;
+    $("#playerName").blur();
+    renderBoard($("#winBoard"), currentEntry.n, currentEntry.id);
+  });
+  function openRanking() {
+    const n = String(settings.n);
+    $("#rankingSub").textContent = t("rankingSub").replace("{n}", n);
+    renderBoard($("#rankBoard"), n, null);
+    $("#ranking").hidden = false;
+  }
+  $("#rankBtn").onclick = openRanking;
+  $("#rankClose").onclick = () => { $("#ranking").hidden = true; };
+  $("#rankClear").onclick = () => {
+    const n = String(settings.n);
+    if (!window.confirm(t("confirmClear").replace("{n}", n))) return;
+    const all = readScores(); delete all[n]; writeScores(all);
+    renderBoard($("#rankBoard"), n, null);
+  };
   function showWinText() {
     $("#winText").textContent = t("winText").replace("{n}", state.pieces.length).replace("{t}", fmt(state.elapsed));
   }
@@ -997,6 +1078,9 @@
     document.title = t("title");
     $("#titleWord").textContent = t("titleWord");
     document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+    $("#rankBtn").title = t("ranking");
+    $("#rankBtn").setAttribute("aria-label", t("ranking"));
     $("#tSound").setAttribute("aria-label", t("sound"));
     $("#tSound").title = t("sound");
     $("#tCantons").title = t("cantons");

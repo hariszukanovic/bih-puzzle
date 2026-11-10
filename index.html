@@ -55,6 +55,7 @@
         <button class="segbtn" id="langBs" aria-pressed="true">BS</button>
         <button class="segbtn" id="langEn" aria-pressed="false">EN</button>
       </div>
+      <button class="chip icon" id="rankBtn" aria-label="Top 10">🏆</button>
       <button class="primary" id="newGame"><span aria-hidden="true">🔀</span> <span data-i18n="newGame">Nova igra</span></button>
     </div>
   </div>
@@ -73,10 +74,30 @@
       <div class="trophy" aria-hidden="true">🏆</div>
       <h2 data-i18n="winTitle">Bravo!</h2>
       <p id="winText"></p>
+      <div class="record" id="record" hidden>
+        <p class="recordText" id="recordText"></p>
+        <form class="nameRow" id="nameForm" autocomplete="off">
+          <input id="playerName" maxlength="20" data-i18n-ph="namePlaceholder" placeholder="Tvoje ime (nije obavezno)">
+          <button class="primary" type="submit" id="saveName" data-i18n="save">Sačuvaj</button>
+        </form>
+      </div>
+      <ol class="board" id="winBoard"></ol>
       <div class="actions">
         <button class="primary" id="again" data-i18n="playAgain">Igraj ponovo</button>
         <button class="chip" id="harder" data-i18n="harder">Više dijelova</button>
         <button class="chip" id="look" data-i18n="look">Pogledaj kartu</button>
+      </div>
+    </div>
+  </div>
+  <div class="win" id="ranking" hidden>
+    <div class="card">
+      <div class="trophy" aria-hidden="true">🏆</div>
+      <h2 data-i18n="ranking">Najbolja vremena</h2>
+      <p id="rankingSub"></p>
+      <ol class="board" id="rankBoard"></ol>
+      <div class="actions">
+        <button class="primary" id="rankClose" data-i18n="close">Zatvori</button>
+        <button class="chip" id="rankClear" data-i18n="clear">Obriši listu</button>
       </div>
     </div>
   </div>

@@ -142,3 +142,23 @@ body, button, input { touch-action: manipulation; }
   color: #fecb00;
   text-shadow: -1.5px -1.5px 0 #002395, 1.5px -1.5px 0 #002395, -1.5px 1.5px 0 #002395, 1.5px 1.5px 0 #002395;
 }
+
+/* timer + top 10 */
+.status { font-size: 20px; }
+.status #time { font-variant-numeric: tabular-nums; }
+.record { background: #fff7d6; border: 2px dashed #e0a800; border-radius: 16px; padding: 10px 12px; margin: 0 0 12px; }
+.recordText { margin: 0 0 8px !important; font-size: 17px !important; font-weight: 700 !important; }
+.nameRow { display: flex; gap: 8px; }
+.nameRow input {
+  flex: 1; min-width: 0; font: 600 18px var(--font); padding: 6px 12px; border-radius: 999px;
+  border: 2px solid rgba(30,58,138,.3); -webkit-user-select: text; user-select: text;
+}
+.board { list-style: none; margin: 0 0 14px; padding: 0; text-align: left; max-height: 40vh; overflow: auto; }
+.board li { display: flex; gap: 10px; align-items: center; padding: 4px 10px; border-radius: 10px; font-size: 17px; }
+.board li:nth-child(odd) { background: #f1f5ff; }
+.board li.me { background: #fecb00; font-weight: 800; }
+.board li.empty { justify-content: center; color: #555; }
+.board .pos { width: 34px; text-align: center; }
+.board .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .tm { font-weight: 800; color: var(--blue); font-variant-numeric: tabular-nums; }
+.card { max-height: calc(100% - 20px); overflow: auto; }
