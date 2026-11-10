@@ -6,6 +6,14 @@
 <title>BiH Slagalica</title>
 <meta name="description" content="Složi kartu Bosne i Hercegovine! Online slagalica za djecu.">
 <meta name="theme-color" content="#1e3a8a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="BiH Slagalica">
+<meta property="og:description" content="Složi kartu Bosne i Hercegovine! Online slagalica za djecu. Koliko brzo možeš?">
+<meta property="og:url" content="https://hariszukanovic.github.io/bih-puzzle/">
+<meta property="og:image" content="https://hariszukanovic.github.io/bih-puzzle/img/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -81,7 +89,20 @@
           <button class="primary" type="submit" id="saveName" data-i18n="save">Sačuvaj</button>
         </form>
       </div>
+      <div class="seg tabs" data-online hidden>
+        <button class="segbtn" data-scope="global" aria-pressed="true"><span aria-hidden="true">🌍</span> <span data-i18n="scopeGlobal">Svi igrači</span></button>
+        <button class="segbtn" data-scope="local" aria-pressed="false"><span aria-hidden="true">📱</span> <span data-i18n="scopeLocal">Ovaj uređaj</span></button>
+      </div>
       <ol class="board" id="winBoard"></ol>
+      <div class="share" id="shareRow">
+        <span class="label" data-i18n="share">Podijeli:</span>
+        <button class="sharebtn native" id="shareNative" hidden>📤 <span data-i18n="shareShort">Podijeli</span></button>
+        <button class="sharebtn fb" data-net="facebook">Facebook</button>
+        <button class="sharebtn wa" data-net="whatsapp">WhatsApp</button>
+        <button class="sharebtn vb" data-net="viber">Viber</button>
+        <button class="sharebtn x" data-net="x">X</button>
+        <button class="sharebtn cp" data-net="copy">🔗 <span data-i18n="copyLink">Kopiraj link</span></button>
+      </div>
       <div class="actions">
         <button class="primary" id="again" data-i18n="playAgain">Igraj ponovo</button>
         <button class="chip" id="harder" data-i18n="harder">Više dijelova</button>
@@ -94,6 +115,10 @@
       <div class="trophy" aria-hidden="true">🏆</div>
       <h2 data-i18n="ranking">Najbolja vremena</h2>
       <p id="rankingSub"></p>
+      <div class="seg tabs" data-online hidden>
+        <button class="segbtn" data-scope="global" aria-pressed="true"><span aria-hidden="true">🌍</span> <span data-i18n="scopeGlobal">Svi igrači</span></button>
+        <button class="segbtn" data-scope="local" aria-pressed="false"><span aria-hidden="true">📱</span> <span data-i18n="scopeLocal">Ovaj uređaj</span></button>
+      </div>
       <ol class="board" id="rankBoard"></ol>
       <div class="actions">
         <button class="primary" id="rankClose" data-i18n="close">Zatvori</button>
@@ -105,6 +130,8 @@
 
 <script src="js/mapdata.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/online.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

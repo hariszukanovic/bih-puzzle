@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global top 10: anyone can read; anyone can add one valid score; nobody can change or delete.
+    match /boards/{pieces}/scores/{scoreId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['name', 'ms', 'pieces', 'shape', 'date'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 20
+        && request.resource.data.ms is int
+        && request.resource.data.ms >= 3000
+        && request.resource.data.ms < 36000000
+        && request.resource.data.pieces is int
+        && string(request.resource.data.pieces) == pieces
+        && request.resource.data.pieces >= 2
+        && request.resource.data.pieces <= 80
+        && request.resource.data.shape in ['classic', 'wavy']
+        && request.resource.data.date is timestamp;
+      allow update, delete: if false;
+    }
+  }
+}

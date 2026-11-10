@@ -162,3 +162,21 @@ body, button, input { touch-action: manipulation; }
 .board .who { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board .tm { font-weight: 800; color: var(--blue); font-variant-numeric: tabular-nums; }
 .card { max-height: calc(100% - 20px); overflow: auto; }
+
+/* tabs + sharing */
+.tabs { justify-content: center; margin: 0 0 8px; }
+.tabs[hidden] { display: none; }
+.tabs .segbtn { font-size: 15px; min-height: 34px; }
+.share { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; margin: 0 0 14px; }
+.share .label { font-size: 15px; }
+.sharebtn {
+  border: 0; border-radius: 999px; padding: 6px 12px; min-height: 36px; font: 700 14px var(--font); color: #fff;
+  box-shadow: 0 2px 0 rgba(0,0,0,.18);
+}
+.sharebtn[hidden] { display: none; }
+.sharebtn.native { background: var(--blue2); }
+.sharebtn.fb { background: #1877f2; }
+.sharebtn.wa { background: #1fa855; }
+.sharebtn.vb { background: #7360f2; }
+.sharebtn.x { background: #111; }
+.sharebtn.cp { background: #fff; color: var(--ink); border: 2px solid rgba(30,58,138,.25); }

@@ -943,7 +943,8 @@
     }, 250);
   }
 
-  /* ---------------- top 10 (stored on this device) ---------------- */
+  /* ---------------- top 10: this device + all players (Firebase) ---------------- */
+  const online = window.BihOnline || { enabled: false };
   const SCORE_KEY = "bih-puzzle-scores";
   function readScores() {
     try { return JSON.parse(localStorage.getItem(SCORE_KEY) || "{}") || {}; } catch (e) { return {}; }
@@ -951,31 +952,61 @@
   function writeScores(all) {
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(all)); } catch (e) { /* storage blocked */ }
   }
-  let currentEntry = null;
+  document.querySelectorAll("[data-online]").forEach((el) => { el.hidden = !online.enabled; });
+
+  let winInfo = null; // the finished game: { n, ms, shape, localId, globalPending, globalId }
+  const scopes = { win: online.enabled ? "global" : "local", rank: online.enabled ? "global" : "local" };
+
   function recordScore() {
-    const n = String(state.pieces.length);
+    const n = String(state.pieces.length), ms = Math.round(state.elapsed);
     const all = readScores();
     const list = (all[n] || []).slice();
-    const entry = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), name: "", ms: Math.round(state.elapsed), date: new Date().toISOString().slice(0, 10) };
+    const entry = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), name: "", ms, date: new Date().toISOString().slice(0, 10) };
     list.push(entry);
     list.sort((a, b) => a.ms - b.ms);
-    const rank = list.indexOf(entry) + 1;
-    currentEntry = null;
+    const localRank = list.indexOf(entry) + 1;
+    winInfo = { n, ms, shape: settings.shape, localId: null, globalPending: false, globalId: null };
     $("#record").hidden = true;
-    if (rank <= 10) {
+    if (localRank <= 10) {
       all[n] = list.slice(0, 10);
       writeScores(all);
-      currentEntry = { n, id: entry.id, rank };
-      $("#record").hidden = false;
-      $("#recordText").textContent = t("newRecord").replace("{r}", rank);
-      $("#playerName").value = settings.lastName || "";
+      winInfo.localId = entry.id;
+      showNameForm(t("newRecord").replace("{r}", localRank));
+    }
+    renderScope("win");
+    if (online.enabled) {
+      const info = winInfo;
+      online.top(n).then((top) => {
+        if (winInfo !== info) return;
+        const globalRank = top.filter((e) => e.ms <= ms).length + 1;
+        if (globalRank <= 10) {
+          info.globalPending = true;
+          showNameForm(t("newWorldRecord").replace("{r}", globalRank));
+        }
+      }).catch(() => { /* offline: the device list still works */ });
+    }
+  }
+  function showNameForm(text) {
+    $("#record").hidden = false;
+    $("#recordText").textContent = text;
+    if (!$("#saveName").disabled || $("#saveName").textContent !== t("saved")) {
+      $("#playerName").value = $("#playerName").value || settings.lastName || "";
       $("#saveName").disabled = false;
       $("#saveName").textContent = t("save");
     }
-    renderBoard($("#winBoard"), n, currentEntry && currentEntry.id);
   }
-  function renderBoard(el, n, highlightId) {
-    const list = readScores()[n] || [];
+
+  // send the score to the global list (once), with whatever name was typed
+  function flushGlobal(name) {
+    const info = winInfo;
+    if (!info || !info.globalPending || !online.enabled) return Promise.resolve();
+    info.globalPending = false;
+    return online.submit(info.n, name, info.ms, info.shape)
+      .then((doc) => { info.globalId = doc.id; })
+      .catch(() => { /* offline: ignore */ });
+  }
+
+  function renderList(el, list, highlightId) {
     el.innerHTML = "";
     if (!list.length) {
       const li = document.createElement("li");
@@ -984,32 +1015,73 @@
     }
     list.forEach((e, i) => {
       const li = document.createElement("li");
-      if (e.id === highlightId) li.className = "me";
+      if (highlightId && e.id === highlightId) li.className = "me";
       const medal = ["🥇", "🥈", "🥉"][i] || (i + 1) + ".";
       const a = document.createElement("span"); a.className = "pos"; a.textContent = medal;
       const b = document.createElement("span"); b.className = "who"; b.textContent = e.name || t("anonymous");
       const c = document.createElement("span"); c.className = "tm"; c.textContent = fmt(e.ms);
-      li.append(a, b, c);
+      li.appendChild(a); li.appendChild(b); li.appendChild(c);
       el.appendChild(li);
     });
   }
+  function message(el, text) {
+    el.innerHTML = "";
+    const li = document.createElement("li");
+    li.className = "empty"; li.textContent = text;
+    el.appendChild(li);
+  }
+
+  // which: "win" (the Bravo card) or "rank" (the trophy button)
+  function renderScope(which) {
+    const el = which === "win" ? $("#winBoard") : $("#rankBoard");
+    const card = el.closest(".card");
+    const scope = scopes[which];
+    card.querySelectorAll("[data-scope]").forEach((bt) => bt.setAttribute("aria-pressed", bt.dataset.scope === scope ? "true" : "false"));
+    const n = which === "win" && winInfo ? winInfo.n : String(settings.n);
+    if (which === "rank") {
+      $("#rankingSub").textContent = t(scope === "global" ? "rankingSubGlobal" : "rankingSub").replace("{n}", n);
+      $("#rankClear").hidden = scope === "global";
+    }
+    if (scope === "local") {
+      renderList(el, readScores()[n] || [], which === "win" && winInfo ? winInfo.localId : null);
+      return;
+    }
+    message(el, t("loadingScores"));
+    online.top(n).then((list) => {
+      if (scopes[which] !== "global") return;
+      renderList(el, list, which === "win" && winInfo ? winInfo.globalId : null);
+    }).catch(() => { if (scopes[which] === "global") message(el, t("offline")); });
+  }
+  document.querySelectorAll("[data-scope]").forEach((bt) => {
+    bt.addEventListener("click", () => {
+      const which = bt.closest("#win") ? "win" : "rank";
+      scopes[which] = bt.dataset.scope;
+      renderScope(which);
+    });
+  });
+
   $("#nameForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    if (!currentEntry) return;
+    if (!winInfo) return;
     const name = $("#playerName").value.trim().slice(0, 20);
-    const all = readScores();
-    const entry = (all[currentEntry.n] || []).find((x) => x.id === currentEntry.id);
-    if (entry) { entry.name = name; writeScores(all); }
+    if (winInfo.localId) {
+      const all = readScores();
+      const entry = (all[winInfo.n] || []).find((x) => x.id === winInfo.localId);
+      if (entry) { entry.name = name; writeScores(all); }
+    }
     if (name) { settings.lastName = name; saveStore(); }
     $("#saveName").textContent = t("saved");
     $("#saveName").disabled = true;
     $("#playerName").blur();
-    renderBoard($("#winBoard"), currentEntry.n, currentEntry.id);
+    flushGlobal(name).then(() => renderScope("win"));
   });
+
+  function leaveWin() {
+    if (winInfo && winInfo.globalPending) flushGlobal($("#playerName").value.trim().slice(0, 20));
+  }
+
   function openRanking() {
-    const n = String(settings.n);
-    $("#rankingSub").textContent = t("rankingSub").replace("{n}", n);
-    renderBoard($("#rankBoard"), n, null);
+    renderScope("rank");
     $("#ranking").hidden = false;
   }
   $("#rankBtn").onclick = openRanking;
@@ -1018,8 +1090,38 @@
     const n = String(settings.n);
     if (!window.confirm(t("confirmClear").replace("{n}", n))) return;
     const all = readScores(); delete all[n]; writeScores(all);
-    renderBoard($("#rankBoard"), n, null);
+    renderScope("rank");
   };
+
+  /* ---------------- sharing ---------------- */
+  const GAME_URL = "https://hariszukanovic.github.io/bih-puzzle/";
+  function shareText() {
+    return winInfo ? t("shareText").replace("{n}", winInfo.n).replace("{t}", fmt(winInfo.ms)) : t("tagline");
+  }
+  function openWin(url) { window.open(url, "_blank", "noopener,width=640,height=560"); }
+  if (navigator.share) {
+    $("#shareNative").hidden = false;
+    $("#shareNative").onclick = () => {
+      navigator.share({ title: t("title"), text: shareText(), url: GAME_URL }).catch(() => {});
+    };
+  }
+  document.querySelectorAll("[data-net]").forEach((bt) => {
+    bt.addEventListener("click", () => {
+      const text = shareText(), u = encodeURIComponent(GAME_URL), tx = encodeURIComponent(text);
+      const net = bt.dataset.net;
+      if (net === "facebook") openWin("https://www.facebook.com/sharer/sharer.php?u=" + u + "&quote=" + tx);
+      if (net === "whatsapp") openWin("https://wa.me/?text=" + encodeURIComponent(text + " " + GAME_URL));
+      if (net === "viber") window.location.href = "viber://forward?text=" + encodeURIComponent(text + " " + GAME_URL);
+      if (net === "x") openWin("https://twitter.com/intent/tweet?text=" + tx + "&url=" + u);
+      if (net === "copy") {
+        const done = () => { const sp = bt.querySelector("span"); sp.textContent = t("copied"); setTimeout(() => { sp.textContent = t("copyLink"); }, 1800); };
+        const full = text + " " + GAME_URL;
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(full).then(done, () => window.prompt("", full));
+        else window.prompt("", full);
+      }
+    });
+  });
+
   function showWinText() {
     $("#winText").textContent = t("winText").replace("{n}", state.pieces.length).replace("{t}", fmt(state.elapsed));
   }
@@ -1117,10 +1219,10 @@
   $("#minus").onclick = () => setCount(settings.n - 1);
   $("#plus").onclick = () => setCount(settings.n + 1);
   $("#count").addEventListener("change", (e) => setCount(parseInt(e.target.value, 10), true));
-  $("#newGame").onclick = () => newGame();
-  $("#again").onclick = () => newGame();
-  $("#harder").onclick = () => setCount(settings.n + 10, true);
-  $("#look").onclick = () => { $("#win").hidden = true; };
+  $("#newGame").onclick = () => { leaveWin(); newGame(); };
+  $("#again").onclick = () => { leaveWin(); newGame(); };
+  $("#harder").onclick = () => { leaveWin(); setCount(settings.n + 10, true); };
+  $("#look").onclick = () => { leaveWin(); $("#win").hidden = true; };
 
   const toggle = (key, rerender) => () => {
     settings[key] = !settings[key]; saveStore(); syncUI();
