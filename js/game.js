@@ -16,11 +16,12 @@
   const confettiCanvas = $("#confetti");
 
   /* ---------------- settings ---------------- */
-  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: true, bg: "map", sound: true, lang: "bs" };
+  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: true, bg: "map", shape: "classic", sound: true, lang: "bs" };
   const settings = Object.assign({}, DEFAULTS, readStore());
   const qs = new URLSearchParams(location.search);
   if (qs.get("lang") === "en" || qs.get("lang") === "bs") settings.lang = qs.get("lang");
   if (qs.get("n")) settings.n = clampN(parseInt(qs.get("n"), 10));
+  if (qs.get("shape") === "wavy" || qs.get("shape") === "classic") settings.shape = qs.get("shape");
   if (qs.get("bg") === "flag" || qs.get("bg") === "map") settings.bg = qs.get("bg");
   settings.n = clampN(settings.n);
 
@@ -315,6 +316,112 @@
     return label;
   }
 
+  /** Classic jigsaw cut: a grid of pieces with round tabs, clipped to the
+   *  country, then the smallest bits are merged until exactly n remain. */
+  function cutClassic(n, seed) {
+    const inside = getCountryMask();
+    let area = 0;
+    for (let i = 0; i < W * H; i++) area += inside[i];
+    let c = Math.sqrt(area / n) * 1.1;
+    for (let attempt = 0; attempt < 40; attempt++, c *= 0.965) {
+      const label = jigsawGrid(c, mulberry32(seed + attempt));
+      const sizes = labelSizes(label);
+      let substantial = 0;
+      sizes.forEach((s) => { if (s >= c * c * 0.3) substantial++; });
+      if (substantial < n) continue;
+      mergeDown(label, n);
+      // relabel to 0..n-1
+      const map = new Map();
+      for (let i = 0; i < W * H; i++) {
+        const l = label[i];
+        if (l < 0) continue;
+        let m = map.get(l);
+        if (m === undefined) { m = map.size; map.set(l, m); }
+        label[i] = m;
+      }
+      if (map.size !== n) continue;
+      return label;
+    }
+    return null;
+  }
+
+  function jigsawGrid(c, rnd) {
+    const ox = -rnd() * c * 0.5, oy = -rnd() * c * 0.5;
+    const cols = Math.ceil((W - ox) / c) + 1, rows = Math.ceil((H - oy) / c) + 1;
+    // tab for every inner edge: dir (+1 into the next cell / -1 into the previous), position and size jitter
+    const mk = () => ({ d: rnd() < 0.5 ? 1 : -1, m: 0.5 + (rnd() - 0.5) * 0.16, s: 0.92 + rnd() * 0.16 });
+    const hT = [], vT = []; // hT[j][i]: edge at top of row j (between rows j-1 and j); vT[j][i]: left of column i
+    for (let j = 0; j <= rows; j++) { hT.push([]); vT.push([]); for (let i = 0; i <= cols; i++) { hT[j].push(mk()); vT[j].push(mk()); } }
+    const R = 0.19, D = 0.2, NECK = 0.085;
+    // is the point (along a, distance t from the edge), in cell units, inside a tab?
+    const inTab = (tab, a, t) => {
+      const r = R * tab.s, d = D * tab.s, da = a - tab.m;
+      if (t < 0) return false;
+      if ((da * da) + (t - d) * (t - d) <= r * r) return true;
+      return t <= d && Math.abs(da) <= NECK * tab.s + (t < 0.05 ? (0.05 - t) * 0.6 : 0);
+    };
+    const label = new Int32Array(W * H).fill(-1);
+    const inside = getCountryMask();
+    for (let y = 0; y < H; y++) {
+      const fy = (y + 0.5 - oy) / c, j = Math.floor(fy), v = fy - j;
+      for (let x = 0; x < W; x++) {
+        const idx = y * W + x;
+        if (!inside[idx]) continue;
+        const fx = (x + 0.5 - ox) / c, i = Math.floor(fx), u = fx - i;
+        let ci = i, cj = j;
+        if (j > 0 && hT[j][i].d === 1 && inTab(hT[j][i], u, v)) cj = j - 1;
+        else if (j + 1 < rows && hT[j + 1][i].d === -1 && inTab(hT[j + 1][i], u, 1 - v)) cj = j + 1;
+        else if (i > 0 && vT[j][i].d === 1 && inTab(vT[j][i], v, u)) ci = i - 1;
+        else if (i + 1 < cols && vT[j][i + 1].d === -1 && inTab(vT[j][i + 1], v, 1 - u)) ci = i + 1;
+        label[idx] = cj * cols + ci;
+      }
+    }
+    makeConnected(label, rows * cols);
+    return label;
+  }
+
+  function labelSizes(label) {
+    const sizes = new Map();
+    for (let i = 0; i < W * H; i++) { const l = label[i]; if (l >= 0) sizes.set(l, (sizes.get(l) || 0) + 1); }
+    return sizes;
+  }
+
+  /** Merge the smallest piece into the neighbour it shares the longest border with, until n are left. */
+  function mergeDown(label, n) {
+    let sizes = labelSizes(label);
+    while (sizes.size > n) {
+      let small = -1, ss = Infinity;
+      sizes.forEach((s, l) => { if (s < ss) { ss = s; small = l; } });
+      const border = new Map();
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (label[i] !== small) continue;
+        if (x > 0) addB(border, label[i - 1], small);
+        if (x < W - 1) addB(border, label[i + 1], small);
+        if (y > 0) addB(border, label[i - W], small);
+        if (y < H - 1) addB(border, label[i + W], small);
+      }
+      let target = -1, bc = -1;
+      border.forEach((cnt, l) => { if (cnt > bc) { bc = cnt; target = l; } });
+      if (target < 0) { // isolated island: join the nearest piece by centre distance
+        let sx = 0, sy = 0, k = 0;
+        for (let i = 0; i < W * H; i++) if (label[i] === small) { sx += i % W; sy += (i / W) | 0; k++; }
+        sx /= k; sy /= k;
+        let bd = Infinity;
+        for (let i = 0; i < W * H; i += 7) {
+          const l = label[i];
+          if (l < 0 || l === small) continue;
+          const d = (i % W - sx) ** 2 + (((i / W) | 0) - sy) ** 2;
+          if (d < bd) { bd = d; target = l; }
+        }
+      }
+      for (let i = 0; i < W * H; i++) if (label[i] === small) label[i] = target;
+      sizes.set(target, sizes.get(target) + sizes.get(small));
+      sizes.delete(small);
+    }
+  }
+  function addB(m, l, self) { if (l >= 0 && l !== self) m.set(l, (m.get(l) || 0) + 1); }
+
   /** Keep only the largest part of each piece; give stray bits to a neighbour. */
   function makeConnected(label, n) {
     const comp = new Int32Array(W * H);
@@ -473,7 +580,7 @@
     updateStatus();
     setTimeout(() => {
       let label = null;
-      for (let attempt = 0; attempt < 8 && !label; attempt++) label = cut(n, (Math.random() * 1e9) | 0);
+      for (let attempt = 0; attempt < 8 && !label; attempt++) label = settings.shape === "wavy" ? cut(n, (Math.random() * 1e9) | 0) : cutClassic(n, (Math.random() * 1e9) | 0);
       if (!label) { console.error("Could not cut puzzle"); return; }
       state.pieces = buildPieces(label, n);
       state.map = renderMap();
@@ -852,6 +959,8 @@
     setPressed("#tHint", settings.hint);
     setPressed("#bgMap", settings.bg === "map");
     setPressed("#bgFlag", settings.bg === "flag");
+    setPressed("#shapeClassic", settings.shape !== "wavy");
+    setPressed("#shapeWavy", settings.shape === "wavy");
     setPressed("#tSound", settings.sound);
     $("#tSound").textContent = settings.sound ? "🔊" : "🔇";
     applyLang();
@@ -881,6 +990,9 @@
   $("#tHint").onclick = toggle("hint", false);
   $("#tSound").onclick = toggle("sound", false);
   $("#bgMap").onclick = () => { settings.bg = "map"; saveStore(); syncUI(); rerenderMap(); };
+  const setShape = (v) => () => { if (settings.shape === v) return; settings.shape = v; saveStore(); syncUI(); newGame(); };
+  $("#shapeClassic").onclick = setShape("classic");
+  $("#shapeWavy").onclick = setShape("wavy");
   $("#bgFlag").onclick = () => { settings.bg = "flag"; saveStore(); syncUI(); rerenderMap(); };
   const setLang = (l) => () => { settings.lang = l; saveStore(); syncUI(); rerenderMap(); };
   $("#langBs").onclick = setLang("bs");

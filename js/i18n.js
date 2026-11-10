@@ -20,6 +20,9 @@ window.I18N = {
     look: "Pogledaj kartu",
     capital: "glavni grad",
     fullscreen: "Cijeli ekran",
+    shape: "Oblik",
+    shapeClassic: "Klasični",
+    shapeWavy: "Valoviti",
   },
   en: {
     title: "BiH Puzzle",
@@ -42,5 +45,8 @@ window.I18N = {
     look: "Look at the map",
     capital: "capital",
     fullscreen: "Full screen",
+    shape: "Shape",
+    shapeClassic: "Classic",
+    shapeWavy: "Wavy",
   },
 };
