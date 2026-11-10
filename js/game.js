@@ -597,7 +597,7 @@
     $("#win").hidden = true;
     $("#loading").classList.remove("hide");
     stopTimer();
-    state.won = false; state.elapsed = 0; state.start = 0;
+    state.won = false; state.elapsed = 0; state.start = 0; state.penalty = 0;
     drags.clear();
     updateStatus();
     setTimeout(() => {
@@ -616,6 +616,7 @@
       state.elapsed = 0;
       startTimer(); // the clock runs from the moment the pieces are laid out
       updateStatus();
+      if (settings.hint) addPenalty();
       requestDraw();
     }, 30);
   }
@@ -929,7 +930,39 @@
     state.timer = setInterval(() => { state.elapsed = performance.now() - state.start; $("#time").textContent = fmt(state.elapsed); }, 250);
   }
   function stopTimer() { if (state.timer) clearInterval(state.timer); state.timer = null; }
+  /* ---------------- hint penalty ---------------- */
+  const HINT_PENALTY = 15000; // each time the hint is switched on, 15 s are added to the clock
+  function addPenalty() {
+    if (state.won || !state.pieces.length || !state.timer) return;
+    state.start -= HINT_PENALTY;
+    state.elapsed = performance.now() - state.start;
+    state.penalty = (state.penalty || 0) + HINT_PENALTY;
+    updateStatus();
+    sound("penalty");
+    // eye candy: a "+15 s" bubble flies from the hint button to the clock, which then shakes red
+    const from = $("#tHint").getBoundingClientRect(), to = $("#time").getBoundingClientRect();
+    const pop = document.createElement("div");
+    pop.className = "penalty-pop";
+    pop.textContent = "+" + HINT_PENALTY / 1000 + " s";
+    pop.style.left = from.left + from.width / 2 + "px";
+    pop.style.top = from.top + from.height / 2 + "px";
+    document.body.appendChild(pop);
+    requestAnimationFrame(() => requestAnimationFrame(() => { pop.classList.add("in"); }));
+    setTimeout(() => {
+      pop.classList.add("go");
+      pop.style.transform = "translate(-50%, -50%) translate(" + (to.left + to.width / 2 - from.left - from.width / 2) + "px," + (to.top + to.height / 2 - from.top - from.height / 2) + "px) scale(0.8)";
+    }, 380);
+    setTimeout(() => {
+      pop.remove();
+      const st = document.querySelector(".status");
+      st.classList.remove("hit"); void st.offsetWidth; st.classList.add("hit");
+    }, 1100);
+  }
+
   function updateStatus() {
+    const pen = $("#penalty");
+    pen.hidden = !state.penalty;
+    pen.textContent = "💡 +" + Math.round((state.penalty || 0) / 1000) + " s";
     const done = state.pieces.filter((p) => p.placed).length;
     $("#placed").textContent = `${done} / ${state.pieces.length || settings.n}`;
     $("#time").textContent = fmt(state.elapsed);
@@ -1125,7 +1158,8 @@
   });
 
   function showWinText() {
-    $("#winText").textContent = t("winText").replace("{n}", state.pieces.length).replace("{t}", fmt(state.elapsed));
+    $("#winText").textContent = t("winText").replace("{n}", state.pieces.length).replace("{t}", fmt(state.elapsed)) +
+      (state.penalty ? " " + t("penaltyNote").replace("{p}", Math.round(state.penalty / 1000) + " s") : "");
   }
 
   function confetti() {
@@ -1170,6 +1204,7 @@
         gn.gain.exponentialRampToValueAtTime(0.0001, now + at + dur);
         o.connect(gn).connect(actx.destination); o.start(now + at); o.stop(now + at + dur + 0.02);
       };
+      if (kind === "penalty") { tone(440, 0, 0.12, "sawtooth", 0.07); tone(330, 0.1, 0.22, "sawtooth", 0.07); }
       if (kind === "pick") tone(520, 0, 0.07, "triangle", 0.08);
       if (kind === "snap") { tone(660, 0, 0.09, "triangle", 0.2); tone(990, 0.06, 0.12, "triangle", 0.16); }
       if (kind === "win") [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.12, i === 5 ? 0.5 : 0.16, "triangle", 0.2));
@@ -1189,7 +1224,7 @@
     $("#tSound").title = t("sound");
     $("#tCantons").title = t("cantons");
     $("#tCities").title = t("cities");
-    $("#tHint").title = t("hint");
+    $("#tHint").title = t("hintTitle");
     $("#fullscreen").title = t("fullscreen");
     $("#fullscreen").setAttribute("aria-label", t("fullscreen"));
     setPressed("#langBs", settings.lang === "bs");
@@ -1232,7 +1267,10 @@
   };
   $("#tCantons").onclick = toggle("cantons", true);
   $("#tCities").onclick = toggle("cities", true);
-  $("#tHint").onclick = toggle("hint", false);
+  $("#tHint").onclick = () => {
+    settings.hint = !settings.hint; saveStore(); syncUI(); requestDraw();
+    if (settings.hint) addPenalty();
+  };
   $("#tSound").onclick = toggle("sound", false);
   $("#bgMap").onclick = () => { settings.bg = "map"; saveStore(); syncUI(); rerenderMap(); };
   const setShape = (v) => () => { if (settings.shape === v) return; settings.shape = v; saveStore(); syncUI(); newGame(); };

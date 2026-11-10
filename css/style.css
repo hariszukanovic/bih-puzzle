@@ -180,3 +180,25 @@ body, button, input { touch-action: manipulation; }
 .sharebtn.vb { background: #7360f2; }
 .sharebtn.x { background: #111; }
 .sharebtn.cp { background: #fff; color: var(--ink); border: 2px solid rgba(30,58,138,.25); }
+
+/* hint penalty */
+.status .penalty { color: #c62828; font-weight: 800; }
+.status .penalty[hidden] { display: none; }
+.status.hit { animation: hit .7s ease; }
+@keyframes hit {
+  0% { background: #ffcdd2; transform: scale(1.12); box-shadow: 0 0 0 6px rgba(229,57,53,.35); }
+  20% { transform: scale(1.12) translateX(-6px); }
+  40% { transform: scale(1.1) translateX(6px); }
+  60% { transform: scale(1.06) translateX(-4px); }
+  80% { transform: scale(1.03) translateX(2px); }
+  100% { background: rgba(255,255,255,.75); transform: none; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+}
+.penalty-pop {
+  position: fixed; z-index: 50; pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  background: #e53935; color: #fff; font: 800 30px var(--font); padding: 4px 18px; border-radius: 999px;
+  border: 3px solid #fff; box-shadow: 0 8px 22px rgba(229,57,53,.5);
+  transition: transform .25s cubic-bezier(.2,1.6,.4,1), opacity .2s;
+}
+.penalty-pop.in { opacity: 1; transform: translate(-50%, -50%) translateY(40px) scale(1.2); }
+.penalty-pop.go { transition: transform .65s cubic-bezier(.5,-0.3,.6,1); }
