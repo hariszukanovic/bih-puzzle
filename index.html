@@ -21,7 +21,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20261110e">
+<link rel="stylesheet" href="css/style.css?v=20261110f">
 </head>
 <body>
 <header class="bar">
@@ -66,6 +66,7 @@
         <button class="segbtn" id="langBs" aria-pressed="true">BS</button>
         <button class="segbtn" id="langEn" aria-pressed="false">EN</button>
       </div>
+      <button class="chip icon" id="shareBtn" aria-label="Podijeli">📤</button>
       <button class="chip icon" id="tidyBtn" aria-label="Posloži dijelove">🧹</button>
       <button class="chip icon" id="rankBtn" aria-label="Top 10">🏆</button>
       <button class="primary" id="newGame"><span aria-hidden="true">🔀</span> <span data-i18n="newGame">Nova igra</span></button>
@@ -101,7 +102,7 @@
       <ol class="board" id="winBoard"></ol>
       <div class="share" id="shareRow">
         <span class="label" data-i18n="share">Podijeli:</span>
-        <button class="sharebtn native" id="shareNative" hidden>📤 <span data-i18n="shareShort">Podijeli</span></button>
+        <button class="sharebtn native" data-native hidden>📤 <span data-i18n="shareShort">Podijeli</span></button>
         <button class="sharebtn fb" data-net="facebook">Facebook</button>
         <button class="sharebtn wa" data-net="whatsapp">WhatsApp</button>
         <button class="sharebtn vb" data-net="viber">Viber</button>
@@ -115,6 +116,23 @@
       </div>
     </div>
   </div>
+  <div class="win" id="shareDlg" hidden>
+    <div class="card">
+      <div class="trophy" aria-hidden="true">🧩</div>
+      <h2 data-i18n="shareGameTitle">Podijeli igru</h2>
+      <p data-i18n="shareGameText">Pozovi prijatelje da slože kartu Bosne i Hercegovine!</p>
+      <div class="share">
+        <button class="sharebtn native" data-native hidden>📤 <span data-i18n="shareShort">Podijeli</span></button>
+        <button class="sharebtn fb" data-net="facebook">Facebook</button>
+        <button class="sharebtn wa" data-net="whatsapp">WhatsApp</button>
+        <button class="sharebtn vb" data-net="viber">Viber</button>
+        <button class="sharebtn x" data-net="x">X</button>
+        <button class="sharebtn cp" data-net="copy">🔗 <span data-i18n="copyLink">Kopiraj link</span></button>
+      </div>
+      <div class="actions"><button class="primary" id="shareClose" data-i18n="close">Zatvori</button></div>
+    </div>
+  </div>
+
   <div class="win" id="ranking" hidden>
     <div class="card">
       <div class="trophy" aria-hidden="true">🏆</div>
@@ -132,10 +150,10 @@
   </div>
 </main>
 
-<script src="js/mapdata.js?v=20261110e"></script>
-<script src="js/i18n.js?v=20261110e"></script>
-<script src="js/firebase-config.js?v=20261110e"></script>
-<script src="js/online.js?v=20261110e"></script>
-<script src="js/game.js?v=20261110e"></script>
+<script src="js/mapdata.js?v=20261110f"></script>
+<script src="js/i18n.js?v=20261110f"></script>
+<script src="js/firebase-config.js?v=20261110f"></script>
+<script src="js/online.js?v=20261110f"></script>
+<script src="js/game.js?v=20261110f"></script>
 </body>
 </html>

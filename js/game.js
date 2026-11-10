@@ -33,6 +33,13 @@
   }
   function clampN(n) { return Math.max(MIN_N, Math.min(MAX_N, isFinite(n) ? n : DEFAULTS.n)); }
   const t = (k) => (I18N[settings.lang] && I18N[settings.lang][k]) || I18N.bs[k] || k;
+  // text with a piece count; Bosnian uses "dijela" after 2, 3, 4 (22, 23, 24 …)
+  const tn = (k, n) => {
+    const v = Number(n), d = v % 10, h = v % 100;
+    let s = t(k);
+    if (settings.lang === "bs" && d >= 2 && d <= 4 && !(h >= 12 && h <= 14)) s = s.replace("{n} dijelova", "{n} dijela");
+    return s.replace("{n}", n);
+  };
 
   /* ---------------- geometry ---------------- */
   function ringsPath(rings) {
@@ -1093,7 +1100,7 @@
     card.querySelectorAll("[data-scope]").forEach((bt) => bt.setAttribute("aria-pressed", bt.dataset.scope === scope ? "true" : "false"));
     const n = which === "win" && winInfo ? winInfo.n : String(settings.n);
     if (which === "rank") {
-      $("#rankingSub").textContent = t(scope === "global" ? "rankingSubGlobal" : "rankingSub").replace("{n}", n);
+      $("#rankingSub").textContent = tn(scope === "global" ? "rankingSubGlobal" : "rankingSub", n);
     }
     if (scope === "local") {
       renderList(el, readScores()[n] || [], which === "win" && winInfo ? winInfo.localId : null);
@@ -1151,19 +1158,22 @@
 
   /* ---------------- sharing ---------------- */
   const GAME_URL = "https://hariszukanovic.github.io/bih-puzzle/";
-  function shareText() {
-    return winInfo ? t("shareText").replace("{n}", winInfo.n).replace("{t}", fmt(winInfo.ms)) : t("tagline");
+  // from the result card: share the time; from the 📤 button: invite to the game
+  function shareText(fromWin) {
+    return fromWin && winInfo ? tn("shareText", winInfo.n).replace("{t}", fmt(winInfo.ms)) : t("inviteText");
   }
+  $("#shareBtn").onclick = () => { $("#shareDlg").hidden = false; };
+  $("#shareClose").onclick = () => { $("#shareDlg").hidden = true; };
   function openWin(url) { window.open(url, "_blank", "noopener,width=640,height=560"); }
   if (navigator.share) {
-    $("#shareNative").hidden = false;
-    $("#shareNative").onclick = () => {
-      navigator.share({ title: t("title"), text: shareText(), url: GAME_URL }).catch(() => {});
-    };
+    document.querySelectorAll("[data-native]").forEach((bt) => {
+      bt.hidden = false;
+      bt.onclick = () => { navigator.share({ title: t("title"), text: shareText(!!bt.closest("#win")), url: GAME_URL }).catch(() => {}); };
+    });
   }
   document.querySelectorAll("[data-net]").forEach((bt) => {
     bt.addEventListener("click", () => {
-      const text = shareText(), u = encodeURIComponent(GAME_URL), tx = encodeURIComponent(text);
+      const text = shareText(!!bt.closest("#win")), u = encodeURIComponent(GAME_URL), tx = encodeURIComponent(text);
       const net = bt.dataset.net;
       if (net === "facebook") openWin("https://www.facebook.com/sharer/sharer.php?u=" + u + "&quote=" + tx);
       if (net === "whatsapp") openWin("https://wa.me/?text=" + encodeURIComponent(text + " " + GAME_URL));
@@ -1179,7 +1189,7 @@
   });
 
   function showWinText() {
-    $("#winText").textContent = t("winText").replace("{n}", state.pieces.length).replace("{t}", fmt(state.elapsed)) +
+    $("#winText").textContent = tn("winText", state.pieces.length).replace("{t}", fmt(state.elapsed)) +
       (state.penalty ? " " + t("penaltyNote").replace("{p}", Math.round(state.penalty / 1000) + " s") : "");
   }
 
@@ -1241,6 +1251,8 @@
     document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
     $("#rankBtn").title = t("ranking");
     $("#tidyBtn").title = t("tidy");
+    $("#shareBtn").title = t("shareGameTitle");
+    $("#shareBtn").setAttribute("aria-label", t("shareGameTitle"));
     $("#tidyBtn").setAttribute("aria-label", t("tidy"));
     $("#rankBtn").setAttribute("aria-label", t("ranking"));
     $("#tSound").setAttribute("aria-label", t("sound"));
