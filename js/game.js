@@ -16,7 +16,7 @@
   const confettiCanvas = $("#confetti");
 
   /* ---------------- settings ---------------- */
-  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: true, bg: "map", shape: "classic", sound: true, lang: "bs" };
+  const DEFAULTS = { n: 22, cantons: true, cities: true, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs" };
   const settings = Object.assign({}, DEFAULTS, readStore());
   const qs = new URLSearchParams(location.search);
   if (qs.get("lang") === "en" || qs.get("lang") === "bs") settings.lang = qs.get("lang");
@@ -26,10 +26,10 @@
   settings.n = clampN(settings.n);
 
   function readStore() {
-    try { return JSON.parse(localStorage.getItem("bih-puzzle") || "{}"); } catch (e) { return {}; }
+    try { return JSON.parse(localStorage.getItem("bih-puzzle-v2") || "{}"); } catch (e) { return {}; }
   }
   function saveStore() {
-    try { localStorage.setItem("bih-puzzle", JSON.stringify(settings)); } catch (e) { /* ignore */ }
+    try { localStorage.setItem("bih-puzzle-v2", JSON.stringify(settings)); } catch (e) { /* ignore */ }
   }
   function clampN(n) { return Math.max(MIN_N, Math.min(MAX_N, isFinite(n) ? n : DEFAULTS.n)); }
   const t = (k) => (I18N[settings.lang] && I18N[settings.lang][k]) || I18N.bs[k] || k;
