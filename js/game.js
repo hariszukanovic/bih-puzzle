@@ -999,7 +999,9 @@
     return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
   }
   // The clock adds real time × the current rate; helpers make it run faster.
-  function clockRate() { return 1 + (settings.hint ? 2 : 0) + (settings.cantons ? 1 : 0) + (settings.cities ? 1 : 0); }
+  function clockRate() { return 1 + (settings.hint ? 1 : 0) + (settings.cantons ? 0.5 : 0) + (settings.cities ? 0.5 : 0); }
+  // "1,5" in Bosnian, "1.5" in English
+  function rateText(r) { const v = String(Math.round(r * 10) / 10); return settings.lang === "bs" ? v.replace(".", ",") : v; }
   function tick() {
     const now = performance.now();
     if (state.lastTick) {
@@ -1017,7 +1019,7 @@
   }
   function stopTimer() { if (state.timer) clearInterval(state.timer); state.timer = null; }
   /* ---------------- help penalty ---------------- */
-  // while a helper is on the clock runs faster: hint ×3, cantons or cities ×2 (they add up)
+  // while a helper is on the clock runs faster: hint ×2, cantons ×1.5, cities ×1.5 (the extras add up)
   const PENALTY_BTN = { hint: "#tHint", cantons: "#tCantons", cities: "#tCities" };
   function addPenalty(kind) {
     kind = kind || "hint";
@@ -1029,7 +1031,7 @@
     const from = $(PENALTY_BTN[kind]).getBoundingClientRect(), to = $("#time").getBoundingClientRect();
     const pop = document.createElement("div");
     pop.className = "penalty-pop";
-    pop.textContent = "⏩ ×" + clockRate();
+    pop.textContent = "⏩ ×" + rateText(clockRate());
     pop.style.left = from.left + from.width / 2 + "px";
     pop.style.top = from.top + from.height / 2 + "px";
     document.body.appendChild(pop);
@@ -1049,7 +1051,7 @@
     const pen = $("#penalty"), rate = clockRate();
     const penS = Math.round((state.penalty || 0) / 1000);
     pen.hidden = !penS && rate === 1;
-    pen.textContent = (rate > 1 && !state.won ? "⏩ ×" + rate + " " : "") + (penS ? "⚠️ +" + penS + " s" : "");
+    pen.textContent = (rate > 1 && !state.won ? "⏩ ×" + rateText(rate) + " " : "") + (penS ? "⚠️ +" + penS + " s" : "");
     document.querySelector(".status").classList.toggle("fast", rate > 1 && !state.won);
     const done = state.pieces.filter((p) => p.placed).length;
     $("#placed").textContent = `${done} / ${state.pieces.length || settings.n}`;
