@@ -16,7 +16,7 @@
   const confettiCanvas = $("#confetti");
 
   /* ---------------- settings ---------------- */
-  const DEFAULTS = { n: 22, cantons: false, cities: false, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs", fullscreen: true };
+  const DEFAULTS = { n: 22, cantons: false, cities: false, hint: false, bg: "flag", shape: "classic", sound: true, lang: "bs", fullscreen: true, timed: true };
   const settings = Object.assign({}, DEFAULTS, readStore());
   const qs = new URLSearchParams(location.search);
   if (qs.get("lang") === "en" || qs.get("lang") === "bs") settings.lang = qs.get("lang");
@@ -681,6 +681,9 @@
     // the top 10 is kept separately for every piece count, background and shape
     state.bg = settings.bg; state.shape = settings.shape;
     state.board = n + "-" + state.bg + "-" + state.shape;
+    // without time measurement there is no clock, no helper cost and no top 10
+    state.timed = settings.timed !== false;
+    document.body.classList.toggle("untimed", !state.timed);
     $("#win").hidden = true;
     $("#loading").classList.remove("hide");
     stopTimer();
@@ -1031,7 +1034,7 @@
     return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
   }
   // The clock adds real time × the current rate; helpers make it run faster.
-  function clockRate() { return 1 + (settings.hint ? 1 : 0) + (settings.cantons ? 0.5 : 0) + (settings.cities ? 0.5 : 0); }
+  function clockRate() { if (state.timed === false) return 1; return 1 + (settings.hint ? 1 : 0) + (settings.cantons ? 0.5 : 0) + (settings.cities ? 0.5 : 0); }
   // "1,5" in Bosnian, "1.5" in English
   function rateText(r) { const v = String(Math.round(r * 10) / 10); return settings.lang === "bs" ? v.replace(".", ",") : v; }
   function tick() {
@@ -1055,7 +1058,7 @@
   const PENALTY_BTN = { hint: "#tHint", cantons: "#tCantons", cities: "#tCities" };
   function addPenalty(kind) {
     kind = kind || "hint";
-    if (state.won || !state.pieces.length || !state.start) return;
+    if (!state.timed || state.won || !state.pieces.length || !state.start) return;
     if (state.timer) tick();
     updateStatus();
     sound("penalty");
@@ -1102,7 +1105,8 @@
       sound("win");
       confetti();
       showWinText();
-      recordScore();
+      if (state.timed) recordScore();
+      else { winInfo = null; $("#record").hidden = true; }
       $("#win").hidden = false;
     }, 250);
   }
@@ -1303,6 +1307,7 @@
   });
 
   function showWinText() {
+    if (!state.timed) { $("#winText").textContent = tn("winTextFree", state.pieces.length); return; }
     $("#winText").textContent = tn("winText", state.pieces.length).replace("{t}", fmt(state.elapsed)) +
       (state.penalty ? " " + t("penaltyNote").replace("{p}", Math.round(state.penalty / 1000) + " s") : "");
   }
@@ -1393,6 +1398,8 @@
     setPressed("#shapeClassic", settings.shape !== "wavy");
     setPressed("#shapeWavy", settings.shape === "wavy");
     setPressed("#tSound", settings.sound);
+    setPressed("#timedOn", settings.timed !== false);
+    setPressed("#timedOff", settings.timed === false);
     $("#tSound").textContent = settings.sound ? "🔊" : "🔇";
     applyLang();
   }
@@ -1454,6 +1461,9 @@
   const setShape = (v) => () => { if (settings.shape !== v) requestNewGame(() => { settings.shape = v; }); };
   $("#shapeClassic").onclick = setShape("classic");
   $("#shapeWavy").onclick = setShape("wavy");
+  const setTimed = (v) => () => { if ((settings.timed !== false) !== v) requestNewGame(() => { settings.timed = v; }); };
+  $("#timedOn").onclick = setTimed(true);
+  $("#timedOff").onclick = setTimed(false);
 
   // settings panel
   const panel = $("#settingsPanel");

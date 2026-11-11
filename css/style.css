@@ -244,3 +244,7 @@ body, button, input { touch-action: manipulation; }
 .status.fast #time { color: #c62828; }
 .status.fast .penalty { animation: blink 1s steps(2, start) infinite; }
 @keyframes blink { 50% { opacity: .45; } }
+
+/* playing without time measurement: no clock, no helper cost, no top 10 */
+body.untimed #timeBox, body.untimed #penalty, body.untimed .chip .cost,
+body.untimed #rankBtn, body.untimed #winBoard, body.untimed #win .tabs { display: none !important; }
