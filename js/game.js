@@ -198,6 +198,12 @@
     g.stroke(outlinePath);
     g.restore();
 
+    drawLabels(g, flag);
+    return c;
+  }
+
+  // canton names and cities; flag = light text on the flag, otherwise dark text
+  function drawLabels(g, flag) {
     const fill = flag ? "#ffffff" : "#1d2550";
     const halo = flag ? "rgba(0,18,90,0.9)" : "rgba(255,255,255,0.95)";
     g.textAlign = "center";
@@ -255,6 +261,25 @@
         g.textAlign = "center";
       }
     }
+  }
+
+  // cantons and cities for the empty board, so they can be used without the hint picture
+  function renderGuides() {
+    if (!settings.cantons && !settings.cities) return null;
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(W * RES);
+    c.height = Math.ceil(H * RES);
+    const g = c.getContext("2d");
+    g.scale(RES, RES);
+    if (settings.cantons) {
+      g.save();
+      g.clip(outlinePath, "evenodd");
+      g.lineJoin = "round";
+      for (const r of MAP.regions) { g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 4.5; g.stroke(r.path); }
+      for (const r of MAP.regions) { g.strokeStyle = "rgba(30,58,138,0.6)"; g.lineWidth = 1.6; g.stroke(r.path); }
+      g.restore();
+    }
+    drawLabels(g, false);
     return c;
   }
 
@@ -668,6 +693,7 @@
       if (!label) { console.error("Could not cut puzzle"); return; }
       state.pieces = buildPieces(label, n);
       state.map = renderMap();
+      state.guides = renderGuides();
       state.placedLayer = document.createElement("canvas");
       state.placedLayer.width = state.map.width; state.placedLayer.height = state.map.height;
       paintPieces();
@@ -685,6 +711,7 @@
   function rerenderMap() {
     if (!state.pieces.length) return;
     state.map = renderMap();
+    state.guides = renderGuides();
     paintPieces();
     requestDraw();
   }
@@ -823,6 +850,11 @@
     if (showHint) {
       ctx.globalAlpha = 0.5;
       ctx.drawImage(state.map, 0, 0, W, H);
+      ctx.globalAlpha = 1;
+    } else if (state.guides) {
+      // cantons / cities work on their own too: drawn on the empty board without the hint picture
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(state.guides, 0, 0, W, H);
       ctx.globalAlpha = 1;
     }
     ctx.setLineDash([10, 8]);
